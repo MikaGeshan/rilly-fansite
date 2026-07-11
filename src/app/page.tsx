@@ -7,11 +7,45 @@ import { motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 
-interface ShowData {
-  title: string;
-  date: string;
-  start_time: string;
+interface FanLetter {
+  id: string;
+  sender: string;
+  type: "Dukungan" | "Penyemangat" | "Harapan" | "Salam Panggung";
+  message: string;
+  theme: "pink" | "yellow" | "gradient" | "glass";
+  createdAt: string;
+  likes: number;
 }
+
+const DEFAULT_LETTERS: FanLetter[] = [
+  {
+    id: "1",
+    sender: "Reza Prasetya",
+    type: "Dukungan",
+    message: "Rilly, semangat terus ya jalani hari-hari sebagai Trainee JKT48! Bakat menyanyi kamu luar biasa merdu, kami semua di sini akan selalu mendukungmu sampai jadi member reguler! 🌟",
+    theme: "pink",
+    createdAt: "11 Juli 2026",
+    likes: 12
+  },
+  {
+    id: "2",
+    sender: "Indah Wahyuni",
+    type: "Penyemangat",
+    message: "Suara kamu pas bawain 'Rapsodi' di JKT48 School keren banget! Bener-bener harmoni indah yang selalu berirama di benakku, seperti jikoshoukai-mu! Sukses terus ya Rilly! 🌸",
+    theme: "yellow",
+    createdAt: "10 Juli 2026",
+    likes: 8
+  },
+  {
+    id: "3",
+    sender: "Dwi Nugroho",
+    type: "Harapan",
+    message: "Semoga Rilly selalu diberikan kesehatan dan kelancaran dalam setiap show teater JKT48. Nggak sabar mau nonton langsung Rilly di teater akhir pekan ini! Tetap bersinar! ✨",
+    theme: "gradient",
+    createdAt: "09 Juli 2026",
+    likes: 15
+  }
+];
 
 /* ---------------------------------------------------------------
    Floating particle config
@@ -26,52 +60,77 @@ const PARTICLES = [
 ];
 
 export default function Home() {
-  const [copiedHashtag, setCopiedHashtag] = useState<string | null>(null);
-  const [shows, setShows]                 = useState<ShowData[]>([]);
-  const [loadingShows, setLoadingShows]   = useState(true);
   const [mousePos, setMousePos]           = useState({ x: 0, y: 0 });
+  const [letters, setLetters]             = useState<FanLetter[]>([]);
+  const [sender, setSender]               = useState("");
+  const [type, setType]                   = useState<FanLetter["type"]>("Dukungan");
+  const [message, setMessage]             = useState("");
+  const [themeOption, setThemeOption]     = useState<FanLetter["theme"]>("pink");
+  const [submitted, setSubmitted]         = useState(false);
 
   useEffect(() => {
-    const loadShows = async () => {
+    const saved = localStorage.getItem("rilly_fan_letters");
+    if (saved) {
       try {
-        setLoadingShows(true);
-        const now   = new Date();
-        const month = now.getMonth() + 1;
-        const year  = now.getFullYear();
-        const res   = await fetch(`/api/schedule?month=${month}&year=${year}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) { setShows(data); return; }
-        }
-        throw new Error("Failed to load schedule");
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLetters(JSON.parse(saved));
       } catch {
-        setShows([]);
-      } finally {
-        setLoadingShows(false);
+        setLetters(DEFAULT_LETTERS);
       }
-    };
-    loadShows();
+    } else {
+      setLetters(DEFAULT_LETTERS);
+      localStorage.setItem("rilly_fan_letters", JSON.stringify(DEFAULT_LETTERS));
+    }
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) =>
     setMousePos({ x: e.clientX, y: e.clientY });
 
-  const handleCopyHashtag = (tag: string) => {
-    navigator.clipboard.writeText(tag);
-    setCopiedHashtag(tag);
-    setTimeout(() => setCopiedHashtag(null), 2000);
+  const handleSubmitLetter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sender.trim() || !message.trim()) return;
+
+    const newLetter: FanLetter = {
+      id: Date.now().toString(),
+      sender: sender.trim(),
+      type,
+      message: message.trim(),
+      theme: themeOption,
+      createdAt: new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }),
+      likes: 0
+    };
+
+    const updated = [newLetter, ...letters];
+    setLetters(updated);
+    localStorage.setItem("rilly_fan_letters", JSON.stringify(updated));
+
+    setSender("");
+    setMessage("");
+    setThemeOption("pink");
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 3000);
   };
 
-  const hashtags = [
-    { tag: "#MornRill",    title: "Sapaan Pagi",            desc: "Hashtag untuk menyambut pagi hari bersama Rilly. Mulai hari dengan energi harmoni positif." },
-    { tag: "#NightRill",   title: "Sapaan Malam",           desc: "Hashtag penutup hari sebelum tidur. Kirimkan pesan malam hangat untuk mengakhiri hari bersama Rilly." },
-    { tag: "#fRillday",    title: "Pap hari Jumat",         desc: "Momen mingguan setiap hari Jumat untuk membagikan foto, fancam, atau cerita menarik tentang Rilly." },
-    { tag: "#NgabubuRill", title: "Sebelum Berbuka",        desc: "Hashtag khusus bulan Ramadan untuk mengirimkan pesan hangat sebelum berbuka puasa bersama Rilly." },
-    { tag: "#InRilLive",   title: "Live Streaming",         desc: "Hashtag untuk berbagi konten live streaming Rilly." },
-    { tag: "#RillCall",    title: "Video Call bersama Rilly",desc: "Hashtag untuk berbagi konten video call dengan Rilly." },
-    { tag: "#CoveRill",    title: "Rilly's Cover",          desc: "Hashtag untuk meramaikan konten cover lagu yang dibawakan Rilly." },
-    { tag: "#HaRillybur",  title: "Liburan bersama Rilly",  desc: "Hashtag khusus yang digunakan saat Rilly sedang menikmati waktu libur atau jeda aktivitas theater." },
-  ];
+  const handleLikeLetter = (id: string) => {
+    const updated = letters.map(l => {
+      if (l.id === id) {
+        return { ...l, likes: l.likes + 1 };
+      }
+      return l;
+    });
+    setLetters(updated);
+    localStorage.setItem("rilly_fan_letters", JSON.stringify(updated));
+  };
+
+  const handleDeleteLetter = (id: string) => {
+    const updated = letters.filter(l => l.id !== id);
+    setLetters(updated);
+    localStorage.setItem("rilly_fan_letters", JSON.stringify(updated));
+  };
 
   return (
     <div
@@ -216,331 +275,346 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ════════════════════════════════════
-            THEATER SCHEDULE
-        ════════════════════════════════════ */}
-        <section id="theater" className="mt-28">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="relative rounded-[2.5rem] overflow-hidden p-10 md:p-14 shadow-xl"
-            style={{
-              background: "linear-gradient(145deg, #fff8f9 0%, #fdf2f8 50%, #fffbeb 100%)",
-              border: "1px solid rgba(236,72,153,0.15)",
-              boxShadow: "var(--shadow-pink)",
-            }}
-          >
-            {/* Background accent glows */}
-            <div
-              className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)" }}
-            />
-            <div
-              className="pointer-events-none absolute -bottom-20 -left-20 w-64 h-64 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)" }}
-            />
 
-            {/* Top stripe */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1 rounded-t-[2.5rem]"
-              style={{ background: "linear-gradient(90deg, #ec4899, #f59e0b)" }}
-            />
-
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between pb-8 mb-10 gap-4"
-              style={{ borderBottom: "1px solid rgba(236,72,153,0.15)" }}
-            >
-              <div>
-                <p
-                  className="text-[9px] uppercase tracking-[0.38em] font-bold mb-2"
-                  style={{ color: "#f59e0b" }}
-                >
-                  Stage Performance
-                </p>
-                <h2 className="font-black text-4xl md:text-5xl tracking-tight text-gradient">
-                  Theater Schedule
-                </h2>
-              </div>
-              <span
-                className="inline-flex items-center gap-2 text-xs font-mono font-bold px-4 py-1.5 rounded-full"
-                style={{
-                  background: "rgba(236,72,153,0.08)",
-                  color: "#ec4899",
-                  border: "1px solid rgba(236,72,153,0.2)",
-                }}
-              >
-                🎭 This Month
-              </span>
-            </div>
-
-            <div className="relative z-10">
-              {loadingShows ? (
-                <div
-                  className="flex items-center justify-center py-16 font-bold tracking-widest text-sm animate-pulse"
-                  style={{ color: "#ec4899" }}
-                >
-                  Menyelaraskan frekuensi teater...
-                </div>
-              ) : shows.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {shows.map((show, idx) => (
-                    <motion.div
-                      key={idx}
-                      whileHover={{ y: -4, scale: 1.02 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                      className="rounded-2xl p-6 glass-card cursor-default"
-                      style={{ background: "rgba(255,255,255,0.80)" }}
-                    >
-                      <span
-                        className="text-[9px] font-mono uppercase tracking-[0.28em] font-bold"
-                        style={{ color: "#ec4899" }}
-                      >
-                        Show #{String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <p
-                        className="font-black text-lg mt-2 leading-tight"
-                        style={{ color: "#1c0b15" }}
-                      >
-                        {show.title}
-                      </p>
-                      <div
-                        className="mt-4 flex items-center justify-between text-[10px] font-mono"
-                        style={{ color: "#b494a9" }}
-                      >
-                        <span>📅 {show.date}</span>
-                        <span
-                          className="rounded-full px-2.5 py-0.5 font-bold"
-                          style={{
-                            background: "rgba(251,191,36,0.15)",
-                            color: "#f59e0b",
-                            border: "1px solid rgba(251,191,36,0.3)",
-                          }}
-                        >
-                          {show.start_time} WIB
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="text-center py-16 rounded-2xl"
-                  style={{
-                    border: "1.5px dashed rgba(236,72,153,0.25)",
-                    background: "rgba(236,72,153,0.03)",
-                  }}
-                >
-                  <p className="text-3xl mb-3">🎭</p>
-                  <p
-                    className="font-black tracking-widest text-sm uppercase"
-                    style={{ color: "#b494a9" }}
-                  >
-                    To Be Announced
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: "#b494a9" }}>
-                    Jadwal belum tersedia untuk bulan ini.
-                  </p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </section>
 
         {/* ════════════════════════════════════
-            VISUAL GALLERY TEASER
+            FAN LETTER SECTION
         ════════════════════════════════════ */}
-        <section id="gallery" className="mt-28">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="relative rounded-[2.5rem] overflow-hidden p-8 md:p-14 shadow-xl flex flex-col lg:flex-row items-center gap-10"
-            style={{
-              background: "linear-gradient(145deg, #fffbeb 0%, #fdf2f8 50%, #fff8f9 100%)",
-              border: "1px solid rgba(236,72,153,0.15)",
-              boxShadow: "var(--shadow-yellow)",
-            }}
-          >
-            {/* Top stripe accent */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1"
-              style={{ background: "linear-gradient(90deg, #f59e0b, #ec4899)" }}
-            />
-
-            {/* Left Content */}
-            <div className="flex-1 z-10 text-center lg:text-left">
-              <p
-                className="text-[9px] uppercase tracking-[0.38em] font-bold mb-2"
-                style={{ color: "#ec4899" }}
-              >
-                Moments &amp; Memories
-              </p>
-              <h2 className="text-4xl md:text-5xl font-black leading-none text-gradient mb-6">
-                Visual Gallery
-              </h2>
-              <p className="text-sm md:text-base leading-relaxed mb-8 font-medium" style={{ color: "#7b5572" }}>
-                Jelajahi keindahan momen panggung teater, potret resmi (Kabesha), dan senyuman hangat Bong Aprilli Paskah melalui halaman galeri foto khusus kami.
-              </p>
-              <Link
-                href="/gallery"
-                className="btn-gradient inline-flex items-center gap-2 text-xs px-8 py-3.5"
-              >
-                <span>📸</span> Jelajahi Galeri Foto →
-              </Link>
-            </div>
-
-            {/* Right Preview Cards Stack */}
-            <div className="flex-1 w-full max-w-md relative h-[280px] sm:h-[320px] flex items-center justify-center">
-              {/* Back Card (Stage Preview) */}
-              <div
-                className="absolute w-[240px] h-[180px] rounded-2xl overflow-hidden shadow-lg border border-pink-100 rotate-[-8deg] translate-x-[-20px] translate-y-[-10px] opacity-70 group-hover:rotate-[-12deg] transition-transform duration-300"
-              >
-                <Image
-                  src="/rilly_stage.jpg"
-                  alt="Rilly JKT48 Stage Preview"
-                  fill
-                  className="object-cover"
-                  sizes="240px"
-                />
-              </div>
-
-              {/* Front Card (Portrait Preview) */}
-              <div
-                className="absolute w-[180px] h-[240px] rounded-2xl overflow-hidden shadow-2xl border-2 border-white rotate-[6deg] translate-x-[30px] translate-y-[10px]"
-                style={{ boxShadow: "0 10px 25px rgba(236,72,153,0.15)" }}
-              >
-                <Image
-                  src="/rilly_profile.jpg"
-                  alt="Rilly JKT48 Portrait Preview"
-                  fill
-                  className="object-cover"
-                  sizes="180px"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{ background: "linear-gradient(to top, rgba(236,72,153,0.4) 0%, transparent 100%)" }}
-                />
-              </div>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* ════════════════════════════════════
-            HASHTAG GUIDE
-        ════════════════════════════════════ */}
-        <section id="hashtag-guide" className="relative mt-28 py-16 md:py-24 overflow-hidden">
+        <section id="fan-letter-section" className="relative mt-28 py-16 md:py-24 overflow-hidden">
           {/* Divider line */}
           <div className="gradient-divider mb-16" />
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.55 }}
-            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-12"
-          >
-            <div className="max-w-3xl">
-              <p
-                className="text-[9px] uppercase tracking-[0.38em] font-bold mb-2"
-                style={{ color: "#f59e0b" }}
-              >
-                Community Tags
-              </p>
-              <h2 className="text-5xl md:text-7xl font-black leading-none text-gradient">
-                Hashtag Guide
-              </h2>
-              <p className="text-sm md:text-base leading-relaxed max-w-2xl mt-4 font-medium" style={{ color: "#7b5572" }}>
-                Hashtag resmi untuk meramaikan konten dan interaksi bersama Rilly.
-                Gunakan hashtag ini untuk berbagi momen, dan dukungan menarik tentang
-                perjalanan Bong Aprilli di JKT48.
-              </p>
-            </div>
-            <div
-              className="rounded-2xl px-6 py-5 glass-card"
-              style={{ background: "rgba(255,255,255,0.75)", minWidth: 160 }}
-            >
-              <p className="text-[10px] uppercase tracking-[0.28em] font-bold mb-1" style={{ color: "#b494a9" }}>
-                Total Tags
-              </p>
-              <p className="text-3xl font-black text-gradient">8 Tags</p>
-            </div>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {hashtags.map((h, index) => (
-              <motion.article
-                key={h.tag}
-                id={`hashtag-card-${index}`}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+            {/* Left: Form to write letter */}
+            <div className="lg:col-span-5 flex flex-col gap-6">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: index * 0.06 }}
-                whileHover={{ y: -6, scale: 1.02 }}
-                className="relative rounded-2xl p-6 md:p-7 min-h-[230px] overflow-hidden flex flex-col justify-between glass-card group/htag cursor-default"
+                transition={{ duration: 0.6 }}
+                className="rounded-[2rem] p-8 shadow-xl glass-card relative overflow-hidden"
                 style={{
-                  background: "linear-gradient(145deg, rgba(255,251,235,0.90) 0%, rgba(253,242,248,0.90) 100%)",
-                  border: "1px solid rgba(236,72,153,0.14)",
-                  boxShadow: "0 2px 20px rgba(236,72,153,0.06)",
+                  background: "rgba(255, 255, 255, 0.85)",
+                  border: "1px solid rgba(236, 72, 153, 0.15)",
+                  boxShadow: "var(--shadow-pink)"
                 }}
               >
-                {/* Top accent stripe */}
+                {/* Top stripe accent */}
                 <div
-                  className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl"
+                  className="absolute top-0 left-0 right-0 h-1.5"
                   style={{ background: "linear-gradient(90deg, #ec4899, #f59e0b)" }}
                 />
 
-                {/* Giant background # */}
-                <span
-                  className="absolute -right-3 -bottom-8 text-[8rem] font-black leading-none select-none pointer-events-none transition-all duration-500 group-hover/htag:scale-110"
-                  style={{ color: "rgba(236,72,153,0.06)" }}
+                <p
+                  className="text-[9px] uppercase tracking-[0.38em] font-black mb-2"
+                  style={{ color: "#ec4899" }}
                 >
-                  #
-                </span>
+                  Write to Rilly
+                </p>
+                <h2 className="text-3xl font-black leading-none text-gradient mb-6">
+                  Fan Letter
+                </h2>
+                <p className="text-xs font-semibold mb-6" style={{ color: "#7b5572" }}>
+                  Kirimkan surat dukungan manis, salam panggung, atau kata-kata penyemangat untuk Rilly. Pesanmu akan disimpan secara lokal di kotak surat browser ini!
+                </p>
 
-                <div className="relative z-10 flex flex-col justify-between h-full">
+                <form onSubmit={handleSubmitLetter} className="flex flex-col gap-4">
                   <div>
-                    <div className="flex items-start justify-between gap-4 mb-5">
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-[0.25em]"
-                        style={{ color: "#b494a9" }}
-                      >
-                        {h.title}
-                      </span>
-                      <span
-                        className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
-                        style={{
-                          background: "rgba(236,72,153,0.09)",
-                          color: "#ec4899",
-                          border: "1px solid rgba(236,72,153,0.2)",
-                        }}
-                      >
-                        0{index + 1}
-                      </span>
+                    <label
+                      htmlFor="sender-name"
+                      className="block text-[10px] uppercase tracking-wider font-bold mb-1.5"
+                      style={{ color: "#b494a9" }}
+                    >
+                      Nama Pengirim
+                    </label>
+                    <input
+                      type="text"
+                      id="sender-name"
+                      value={sender}
+                      onChange={(e) => setSender(e.target.value)}
+                      placeholder="Masukkan namamu/pseudonim..."
+                      required
+                      maxLength={40}
+                      className="w-full rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all duration-300"
+                      style={{
+                        background: "rgba(255, 255, 255, 0.90)",
+                        border: "1.5px solid rgba(236, 72, 153, 0.12)",
+                        color: "#1c0b15"
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="letter-type"
+                      className="block text-[10px] uppercase tracking-wider font-bold mb-1.5"
+                      style={{ color: "#b494a9" }}
+                    >
+                      Jenis Surat
+                    </label>
+                    <select
+                      id="letter-type"
+                      value={type}
+                      onChange={(e) => setType(e.target.value as FanLetter["type"])}
+                      className="w-full rounded-xl px-4 py-3 text-sm font-semibold outline-none appearance-none transition-all duration-300"
+                      style={{
+                        background: "rgba(255, 255, 255, 0.90)",
+                        border: "1.5px solid rgba(236, 72, 153, 0.12)",
+                        color: "#1c0b15",
+                        backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ec4899' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 1rem center",
+                        backgroundSize: "1.2em"
+                      }}
+                    >
+                      <option value="Dukungan">💌 Dukungan</option>
+                      <option value="Penyemangat">💪 Penyemangat</option>
+                      <option value="Harapan">✨ Harapan</option>
+                      <option value="Salam Panggung">🎭 Salam Panggung</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="letter-message"
+                      className="block text-[10px] uppercase tracking-wider font-bold mb-1.5"
+                      style={{ color: "#b494a9" }}
+                    >
+                      Isi Pesan
+                    </label>
+                    <textarea
+                      id="letter-message"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Tulis surat dukunganmu di sini..."
+                      required
+                      maxLength={500}
+                      rows={4}
+                      className="w-full rounded-xl px-4 py-3 text-sm font-semibold outline-none resize-none transition-all duration-300"
+                      style={{
+                        background: "rgba(255, 255, 255, 0.90)",
+                        border: "1.5px solid rgba(236, 72, 153, 0.12)",
+                        color: "#1c0b15"
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      className="block text-[10px] uppercase tracking-wider font-bold mb-2"
+                      style={{ color: "#b494a9" }}
+                    >
+                      Desain Kartu Surat
+                    </label>
+                    <div className="flex gap-3">
+                      {(["pink", "yellow", "gradient", "glass"] as const).map((opt) => {
+                        const styleMap = {
+                          pink: "linear-gradient(135deg, #fdf2f8, #fbcfe8)",
+                          yellow: "linear-gradient(135deg, #fffbeb, #fde68a)",
+                          gradient: "linear-gradient(135deg, #fff1f2, #fffbeb)",
+                          glass: "rgba(255, 255, 255, 0.4)"
+                        };
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setThemeOption(opt)}
+                            className="w-8 h-8 rounded-full border-2 transition-all duration-300 relative cursor-pointer"
+                            style={{
+                              background: styleMap[opt],
+                              borderColor: themeOption === opt ? "#ec4899" : "rgba(236, 72, 153, 0.15)",
+                              transform: themeOption === opt ? "scale(1.15)" : "scale(1)",
+                              boxShadow: themeOption === opt ? "0 4px 10px rgba(236, 72, 153, 0.25)" : "none"
+                            }}
+                            title={`Tema: ${opt}`}
+                          >
+                            {themeOption === opt && (
+                              <span className="absolute inset-0 flex items-center justify-center text-white text-[9px] font-black drop-shadow-md">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <h3 className="font-bold text-2xl md:text-3xl tracking-tight mb-3 text-gradient">
-                      {h.tag}
-                    </h3>
-                    <p className="text-xs md:text-sm leading-relaxed" style={{ color: "#7b5572" }}>
-                      {h.desc}
-                    </p>
                   </div>
 
                   <button
-                    onClick={() => handleCopyHashtag(h.tag)}
-                    type="button"
-                    id={`copy-hashtag-${index}`}
-                    className="mt-8 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] transition-all duration-200 hover:gap-3"
+                    type="submit"
+                    className="btn-gradient w-full flex items-center justify-center gap-2 text-xs py-3.5 mt-2 cursor-pointer font-black"
+                  >
+                    <span>📮</span> Kirim Surat Dukungan
+                  </button>
+
+                  {submitted && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center text-xs font-bold mt-2"
+                      style={{ color: "#10b981" }}
+                    >
+                      🎉 Surat berhasil terkirim ke kotak surat!
+                    </motion.p>
+                  )}
+                </form>
+              </motion.div>
+            </div>
+
+            {/* Right: Box of Letters */}
+            <div className="lg:col-span-7 flex flex-col gap-6">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span
+                      className="text-[9px] uppercase tracking-[0.25em] font-bold"
+                      style={{ color: "#f59e0b" }}
+                    >
+                      Kotak Surat
+                    </span>
+                    <h3 className="text-3xl font-black text-gradient leading-tight mt-1">
+                      Dukungan Aprillivels
+                    </h3>
+                  </div>
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-3 py-1 rounded-full"
                     style={{
-                      color: copiedHashtag === h.tag ? "#ec4899" : "#b494a9",
+                      background: "rgba(251,191,36,0.08)",
+                      color: "#f59e0b",
+                      border: "1px solid rgba(251,191,36,0.2)",
                     }}
                   >
-                    {copiedHashtag === h.tag ? "✔ Copied!" : "Copy Tag →"}
-                  </button>
+                    💌 {letters.length} Surat
+                  </span>
                 </div>
-              </motion.article>
-            ))}
+
+                <div className="gradient-divider mt-4 mb-6" />
+
+                {/* Letters Container */}
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-h-[580px] overflow-y-auto pr-2 custom-scrollbar"
+                  style={{
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "rgba(236,72,153,0.2) transparent"
+                  }}
+                >
+                  {letters.length > 0 ? (
+                    letters.map((l) => {
+                      const bgMap = {
+                        pink: "linear-gradient(145deg, #fff5f7, #fce7f3)",
+                        yellow: "linear-gradient(145deg, #fffdf5, #fef3c7)",
+                        gradient: "linear-gradient(145deg, #fffbeb 0%, #fdf2f8 50%, #fff1f2 100%)",
+                        glass: "rgba(255, 255, 255, 0.75)"
+                      };
+                      const borderMap = {
+                        pink: "rgba(236, 72, 153, 0.15)",
+                        yellow: "rgba(251, 191, 36, 0.25)",
+                        gradient: "rgba(236, 72, 153, 0.18)",
+                        glass: "rgba(236, 72, 153, 0.12)"
+                      };
+                      return (
+                        <motion.article
+                          key={l.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                          whileHover={{ y: -3 }}
+                          className="rounded-2xl p-5 md:p-6 overflow-hidden flex flex-col justify-between glass-card relative cursor-default group/card"
+                          style={{
+                            background: bgMap[l.theme],
+                            border: `1.5px solid ${borderMap[l.theme]}`,
+                            boxShadow: "var(--shadow-card)",
+                          }}
+                        >
+                          {/* Postmark stamp simulation */}
+                          <div
+                            className="absolute top-4 right-4 w-9 h-9 rounded-full border-2 border-dashed flex items-center justify-center opacity-25 select-none rotate-[15deg] group-hover/card:rotate-[30deg] transition-all duration-300"
+                            style={{ borderColor: "#ec4899" }}
+                          >
+                            <span className="text-[10px] font-black uppercase tracking-widest text-pink-600">
+                              APRIL
+                            </span>
+                          </div>
+
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-between gap-4 mb-3">
+                              <span
+                                className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md font-mono"
+                                style={{
+                                  background: "rgba(236, 72, 153, 0.1)",
+                                  color: "#ec4899",
+                                }}
+                              >
+                                {l.type}
+                              </span>
+                              <span className="text-[9px] font-mono text-gray-400 font-bold">
+                                {l.createdAt}
+                              </span>
+                            </div>
+
+                            <p
+                              className="text-xs leading-relaxed font-semibold italic min-h-[64px]"
+                              style={{ color: "#4c3247" }}
+                            >
+                              &ldquo;{l.message}&rdquo;
+                            </p>
+                          </div>
+
+                          <div className="relative z-10 flex items-center justify-between border-t border-dashed mt-4 pt-3 border-pink-100">
+                            <span className="text-[10px] font-black text-gradient flex items-center gap-1">
+                              👤 {l.sender}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleLikeLetter(l.id)}
+                                type="button"
+                                className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-pink-500 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+                              >
+                                <span>💖</span> {l.likes}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteLetter(l.id)}
+                                type="button"
+                                className="text-[9px] font-black uppercase tracking-wider text-gray-400 hover:text-red-500 transition-colors duration-200 cursor-pointer"
+                                title="Hapus Surat"
+                              >
+                                <span>🗑</span>
+                              </button>
+                            </div>
+                          </div>
+                        </motion.article>
+                      );
+                    })
+                  ) : (
+                    <div
+                      className="sm:col-span-2 text-center py-16 rounded-[2rem] glass-card"
+                      style={{
+                        border: "1.5px dashed rgba(236,72,153,0.25)",
+                        background: "rgba(236,72,153,0.03)",
+                        boxShadow: "var(--shadow-card)"
+                      }}
+                    >
+                      <p className="text-3xl mb-3">📬</p>
+                      <h4
+                        className="font-black tracking-widest text-sm uppercase"
+                        style={{ color: "#b494a9" }}
+                      >
+                        Kotak Surat Kosong
+                      </h4>
+                      <p className="text-xs mt-1" style={{ color: "#b494a9" }}>
+                        Belum ada surat dukungan. Kirimkan surat pertamamu!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
           </div>
         </section>
       </main>

@@ -6,7 +6,7 @@
  * Combines CSS class names dynamically.
  * A simple lightweight alternative to clsx/classnames.
  */
-export function cn(...classes: (string | undefined | null | boolean | { [key: string]: any })[]): string {
+export function cn(...classes: (string | undefined | null | boolean | { [key: string]: boolean | undefined | null })[]): string {
   const result: string[] = [];
 
   for (const item of classes) {

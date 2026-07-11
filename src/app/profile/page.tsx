@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
+import { Loading } from "@/components/ui/loading";
+
+interface ShowData {
+  title: string;
+  date: string;
+  start_time: string;
+}
 
 const PARTICLES = [
   { id: 1, size: 22, delay: 0, x: "5%", y: "20%", symbol: "🎵" },
@@ -16,9 +23,55 @@ const PARTICLES = [
 
 export default function ProfilePage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [shows, setShows] = useState<ShowData[]>([]);
+  const [loadingShows, setLoadingShows] = useState(true);
+
+  useEffect(() => {
+    const loadShows = async () => {
+      try {
+        setLoadingShows(true);
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+        const res = await fetch(`/api/schedule?month=${month}&year=${year}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setShows(data);
+            return;
+          }
+        }
+        throw new Error("Failed to load schedule");
+      } catch {
+        setShows([]);
+      } finally {
+        setLoadingShows(false);
+      }
+    };
+    loadShows();
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent) =>
     setMousePos({ x: e.clientX, y: e.clientY });
+
+  const [copiedHashtag, setCopiedHashtag] = useState<string | null>(null);
+
+  const handleCopyHashtag = (tag: string) => {
+    navigator.clipboard.writeText(tag);
+    setCopiedHashtag(tag);
+    setTimeout(() => setCopiedHashtag(null), 2000);
+  };
+
+  const hashtags = [
+    { tag: "#MornRill",    title: "Sapaan Pagi",            desc: "Hashtag untuk menyambut pagi hari bersama Rilly. Mulai hari dengan energi harmoni positif." },
+    { tag: "#NightRill",   title: "Sapaan Malam",           desc: "Hashtag penutup hari sebelum tidur. Kirimkan pesan malam hangat untuk mengakhiri hari bersama Rilly." },
+    { tag: "#fRillday",    title: "Pap hari Jumat",         desc: "Momen mingguan setiap hari Jumat untuk membagikan foto, fancam, atau cerita menarik tentang Rilly." },
+    { tag: "#NgabubuRill", title: "Sebelum Berbuka",        desc: "Hashtag khusus bulan Ramadan untuk mengirimkan pesan hangat sebelum berbuka puasa bersama Rilly." },
+    { tag: "#InRilLive",   title: "Live Streaming",         desc: "Hashtag untuk berbagi konten live streaming Rilly." },
+    { tag: "#RillCall",    title: "Video Call bersama Rilly",desc: "Hashtag untuk berbagi konten video call dengan Rilly." },
+    { tag: "#CoveRill",    title: "Rilly's Cover",          desc: "Hashtag untuk meramaikan konten cover lagu yang dibawakan Rilly." },
+    { tag: "#HaRillybur",  title: "Liburan bersama Rilly",  desc: "Hashtag khusus yang digunakan saat Rilly sedang menikmati waktu libur atau jeda aktivitas theater." },
+  ];
 
   const profile = {
     fullName: "Bong Aprilli Paskah",
@@ -59,10 +112,10 @@ export default function ProfilePage() {
   const quickInfo = [
     { label: "Nama Panggilan", value: profile.nickname },
     { label: "Golongan Darah", value: profile.bloodType },
-    { label: "Tanggal Lahir",  value: profile.birthDate },
-    { label: "Zodiak",         value: profile.zodiac },
-    { label: "Tinggi Badan",   value: profile.height },
-    { label: "Usia",           value: "16 Tahun" },
+    { label: "Tanggal Lahir", value: profile.birthDate },
+    { label: "Zodiak", value: profile.zodiac },
+    { label: "Tinggi Badan", value: profile.height },
+    { label: "Usia", value: "16 Tahun" },
   ];
 
   return (
@@ -312,17 +365,17 @@ export default function ProfilePage() {
                     Bong Aprilli Paskah
                   </strong>
                   , yang akrab disapa{" "}
-                  <strong style={{ color: "#ec4899" }}>Rilly</strong>,
-                  resmi terjun ke dunia hiburan sebagai anggota Generasi 13
-                  Trainee JKT48 pada akhir 2024. Meski masih muda, ia sudah
-                  berhasil mencuri hati banyak orang dengan suara nyanyian
-                  alami yang kuat dan pesona panggung yang memukau.
+                  <strong style={{ color: "#ec4899" }}>Rilly</strong>, resmi
+                  terjun ke dunia hiburan sebagai anggota Generasi 13 Trainee
+                  JKT48 pada akhir 2024. Meski masih muda, ia sudah berhasil
+                  mencuri hati banyak orang dengan suara nyanyian alami yang
+                  kuat dan pesona panggung yang memukau.
                 </p>
                 <p>
                   Kehadiran Rilly di JKT48 membawa angin segar bagi generasi
                   baru. Memilih nama panggilan &ldquo;Rilly&rdquo; dari nama
-                  tengahnya, ia berdedikasi penuh mengembangkan kemampuannya
-                  di akademi Trainee JKT48, berjuang setiap hari di penampilan
+                  tengahnya, ia berdedikasi penuh mengembangkan kemampuannya di
+                  akademi Trainee JKT48, berjuang setiap hari di penampilan
                   teater demi meraih promosi sebagai member penuh.
                 </p>
               </div>
@@ -387,6 +440,230 @@ export default function ProfilePage() {
             </motion.section>
           </div>
         </div>
+
+        {/* ─── Theater Schedule Section ─── */}
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="mt-20 relative z-10"
+        >
+          <div
+            className="flex flex-col sm:flex-row sm:items-end justify-between pb-6 mb-8 gap-4"
+            style={{ borderBottom: "1px solid rgba(236,72,153,0.15)" }}
+          >
+            <div>
+              <p
+                className="text-[9px] uppercase tracking-[0.38em] font-bold mb-2"
+                style={{ color: "#f59e0b" }}
+              >
+                Stage Performance
+              </p>
+              <h2 className="font-black text-4xl md:text-5xl tracking-tight text-gradient">
+                Jadwal Theater
+              </h2>
+            </div>
+            <span
+              className="inline-flex items-center gap-2 text-xs font-mono font-bold px-4 py-1.5 rounded-full"
+              style={{
+                background: "rgba(236,72,153,0.08)",
+                color: "#ec4899",
+                border: "1px solid rgba(236,72,153,0.2)",
+              }}
+            >
+              🎭 Bulan Ini
+            </span>
+          </div>
+
+          <div>
+            {loadingShows ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loading variant="dots" size="md" label="Please Wait ..." />
+              </div>
+            ) : shows.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {shows.map((show, idx) => (
+                  <motion.div
+                    key={idx}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="rounded-3xl p-6 glass-card cursor-default"
+                    style={{
+                      background: "rgba(255,255,255,0.80)",
+                      boxShadow: "var(--shadow-card)",
+                      border: "1px solid rgba(236,72,153,0.12)",
+                    }}
+                  >
+                    <span
+                      className="text-[9px] font-mono uppercase tracking-[0.28em] font-bold"
+                      style={{ color: "#ec4899" }}
+                    >
+                      Show #{String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <p
+                      className="font-black text-lg mt-2 leading-tight"
+                      style={{ color: "#1c0b15" }}
+                    >
+                      {show.title}
+                    </p>
+                    <div
+                      className="mt-4 flex items-center justify-between text-[10px] font-mono font-bold"
+                      style={{ color: "#b494a9" }}
+                    >
+                      <span>📅 {show.date}</span>
+                      <span
+                        className="rounded-full px-2.5 py-0.5 font-bold"
+                        style={{
+                          background: "rgba(251,191,36,0.15)",
+                          color: "#f59e0b",
+                          border: "1px solid rgba(251,191,36,0.3)",
+                        }}
+                      >
+                        {show.start_time} WIB
+                      </span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="text-center py-16 rounded-[2rem] glass-card"
+                style={{
+                  border: "1.5px dashed rgba(236,72,153,0.25)",
+                  background: "rgba(236,72,153,0.03)",
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                <p className="text-3xl mb-3">🎭</p>
+                <h4
+                  className="font-black tracking-widest text-sm uppercase"
+                  style={{ color: "#b494a9" }}
+                >
+                  To Be Announced
+                </h4>
+                <p className="text-xs mt-1" style={{ color: "#b494a9" }}>
+                  Jadwal belum tersedia untuk bulan ini.
+                </p>
+              </div>
+            )}
+          </div>
+        </motion.section>
+
+        {/* ════════════════════════════════════
+            HASHTAG GUIDE
+        ════════════════════════════════════ */}
+        <section id="hashtag-guide" className="relative mt-20 pb-8 overflow-hidden">
+          {/* Divider line */}
+          <div className="gradient-divider mb-12" />
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55 }}
+            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-10"
+          >
+            <div className="max-w-3xl">
+              <p
+                className="text-[9px] uppercase tracking-[0.38em] font-bold mb-2"
+                style={{ color: "#f59e0b" }}
+              >
+                Community Tags
+              </p>
+              <h2 className="text-4xl md:text-5xl font-black leading-none text-gradient">
+                Hashtag Guide
+              </h2>
+              <p className="text-sm md:text-base leading-relaxed max-w-2xl mt-4 font-medium" style={{ color: "#7b5572" }}>
+                Hashtag resmi untuk meramaikan konten dan interaksi bersama Rilly.
+                Gunakan hashtag ini untuk berbagi momen dan dukungan tentang perjalanan Bong Aprilli di JKT48.
+              </p>
+            </div>
+            <div
+              className="rounded-2xl px-6 py-4 glass-card shadow-sm"
+              style={{ background: "rgba(255,255,255,0.75)", minWidth: 160 }}
+            >
+              <p className="text-[10px] uppercase tracking-[0.28em] font-bold mb-1" style={{ color: "#b494a9" }}>
+                Total Tags
+              </p>
+              <p className="text-3xl font-black text-gradient">8 Tags</p>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {hashtags.map((h, index) => (
+              <motion.article
+                key={h.tag}
+                id={`hashtag-card-${index}`}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.45, delay: index * 0.05 }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                className="relative rounded-2xl p-6 overflow-hidden flex flex-col justify-between glass-card group/htag cursor-default"
+                style={{
+                  background: "linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(253,242,248,0.85) 100%)",
+                  border: "1px solid rgba(236,72,153,0.14)",
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                {/* Top accent stripe */}
+                <div
+                  className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl"
+                  style={{ background: "linear-gradient(90deg, #ec4899, #f59e0b)" }}
+                />
+
+                {/* Giant background # */}
+                <span
+                  className="absolute -right-3 -bottom-8 text-[8rem] font-black leading-none select-none pointer-events-none transition-all duration-500 group-hover/htag:scale-110"
+                  style={{ color: "rgba(236,72,153,0.06)" }}
+                >
+                  #
+                </span>
+
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-[0.25em]"
+                        style={{ color: "#b494a9" }}
+                      >
+                        {h.title}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: "rgba(236,72,153,0.09)",
+                          color: "#ec4899",
+                          border: "1px solid rgba(236,72,153,0.2)",
+                        }}
+                      >
+                        0{index + 1}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-2xl tracking-tight mb-2 text-gradient">
+                      {h.tag}
+                    </h3>
+                    <p className="text-xs leading-relaxed" style={{ color: "#7b5572" }}>
+                      {h.desc}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleCopyHashtag(h.tag)}
+                    type="button"
+                    id={`copy-hashtag-${index}`}
+                    className="mt-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] transition-all duration-200 hover:gap-3 cursor-pointer"
+                    style={{
+                      color: copiedHashtag === h.tag ? "#ec4899" : "#b494a9",
+                    }}
+                  >
+                    {copiedHashtag === h.tag ? "✔ Copied!" : "Copy Tag →"}
+                  </button>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        </section>
       </main>
 
       <Footer />
