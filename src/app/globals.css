@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* ============================================================
+   APRILLIVELS FANSITE — Design Tokens & Global Styles
+   Color palette: White · Soft Yellow · Vivid Pink
+   ============================================================ */
+
+:root {
+  /* Core gradient trio */
+  --clr-white:  #ffffff;
+  --clr-yellow: #fbbf24;  /* amber-400 */
+  --clr-pink:   #ec4899;  /* pink-500  */
+
+  /* Surface tokens */
+  --bg-page:    #fff8f9;
+  --bg-card:    rgba(255, 255, 255, 0.85);
+  --bg-glass:   rgba(255, 248, 249, 0.72);
+
+  /* Text tokens */
+  --text-base:   #1c0b15;
+  --text-muted:  #7b5572;
+  --text-subtle: #b494a9;
+
+  /* Border */
+  --border-soft: rgba(236, 72, 153, 0.15);
+
+  /* Gradients */
+  --grad-hero:  linear-gradient(135deg, #fde68a 0%, #fca5a5 45%, #f9a8d4 100%);
+  --grad-text:  linear-gradient(95deg, #ec4899 0%, #f59e0b 55%, #fde68a 100%);
+  --grad-card:  linear-gradient(145deg, rgba(255,251,235,0.9) 0%, rgba(253,242,248,0.9) 100%);
+  --grad-btn:   linear-gradient(90deg, #ec4899 0%, #f59e0b 100%);
+
+  /* Glow & shadow */
+  --shadow-pink:   0 4px 40px 0 rgba(236, 72, 153, 0.18);
+  --shadow-yellow: 0 4px 40px 0 rgba(251, 191, 36, 0.15);
+  --shadow-card:   0 2px 24px 0 rgba(236, 72, 153, 0.08);
+}
+
+/* Smooth transitions globally */
+*, *::before, *::after {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-page);
+  /* Subtle scattered dot texture */
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(251,191,36,0.08) 0%, transparent 55%),
+    radial-gradient(circle at 80% 90%, rgba(236,72,153,0.09) 0%, transparent 55%);
+  color: var(--text-base);
+  font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* ---- Gradient text utility ---- */
+.text-gradient {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- Gradient button ---- */
+.btn-gradient {
+  background: var(--grad-btn);
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  padding: 0.75rem 2rem;
+  box-shadow: var(--shadow-pink);
+  position: relative;
+  overflow: hidden;
+}
+.btn-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+  opacity: 0;
+}
+.btn-gradient:hover::after { opacity: 1; }
+.btn-gradient:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(236,72,153,0.35); }
+
+/* ---- Glass card ---- */
+.glass-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---- Shimmer animation ---- */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #ec4899 0%,
+    #f59e0b 25%,
+    #fde68a 50%,
+    #f59e0b 75%,
+    #ec4899 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+/* ---- Floating glow orbs ---- */
+@keyframes floatOrb {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-30px) scale(1.05); }
+}
+.orb-pink {
+  background: radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%);
+  animation: floatOrb 7s ease-in-out infinite;
+}
+.orb-yellow {
+  background: radial-gradient(circle, rgba(251,191,36,0.22) 0%, transparent 70%);
+  animation: floatOrb 9s ease-in-out infinite reverse;
+}
+
+/* ---- Section divider ---- */
+.gradient-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ec4899 40%, #f59e0b 60%, transparent);
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #fff8f9; }
+::-webkit-scrollbar-thumb { background: linear-gradient(#ec4899, #f59e0b); border-radius: 9999px; }
