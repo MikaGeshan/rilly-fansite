@@ -278,8 +278,7 @@ export default function GalleryPage() {
               Galeri Kosong
             </h3>
             <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
-              Belum ada foto yang tersedia saat ini. Silakan jalankan scraper
-              media atau konfigurasikan feed Instagram.
+              Gagal mendapatkan media. Silahkan coba lagi nanti
             </p>
           </div>
         ) : (
