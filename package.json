@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.2",
     "axios": "^1.18.1",
+    "cross-fetch": "^4.1.0",
     "framer-motion": "^12.42.0",
     "next": "16.2.9",
     "react": "19.2.4",

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
+import { supabase } from "@/lib/supabase";
 
 const PARTICLES = [
   { id: 1, size: 22, delay: 0, x: "10%", y: "15%", symbol: "🎵" },
@@ -21,12 +22,6 @@ interface GalleryItem {
   alt: string;
   className: string;
   shadow: string;
-}
-
-interface ScrapedMediaItem {
-  id?: string;
-  src: string;
-  source: string;
 }
 
 function GalleryCard({
@@ -95,43 +90,44 @@ export default function GalleryPage() {
     async function loadScrapedMedia() {
       try {
         setLoading(true);
-        const res = await fetch("/data/media.json");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            // Filter out any entries with invalid src URLs
-            const validData = data.filter(
-              (item: ScrapedMediaItem) =>
-                item.src &&
-                (item.src.startsWith("/") || item.src.startsWith("http")),
-            );
+        // Query media table from Supabase, ordered by date descending
+        const { data, error } = await supabase
+          .from("media")
+          .select("*")
+          .order("date", { ascending: false });
 
-            // Map raw JSON items to our styling layouts
-            const styledItems = validData.map(
-              (item: ScrapedMediaItem, idx: number) => {
-                // Rotate layout patterns dynamically
-                const rotations = [
-                  "rotate-[-2deg]",
-                  "rotate-[1deg]",
-                  "rotate-[-1deg]",
-                  "rotate-[2deg]",
-                ];
-                const shadows = ["var(--shadow-pink)", "var(--shadow-yellow)"];
+        if (error) throw error;
 
-                return {
-                  id: item.id || `scraped-${idx}`,
-                  src: item.src,
-                  alt: `Media Bong Aprilli JKT48 (${item.source})`,
-                  className: rotations[idx % rotations.length],
-                  shadow: shadows[idx % shadows.length],
-                };
-              },
-            );
-            setItems(styledItems);
-          }
+        if (Array.isArray(data) && data.length > 0) {
+          const styledItems = data.map((item: any, idx: number) => {
+            const rotations = [
+              "rotate-[-2deg]",
+              "rotate-[1deg]",
+              "rotate-[-1deg]",
+              "rotate-[2deg]",
+            ];
+            const shadows = ["var(--shadow-pink)", "var(--shadow-yellow)"];
+
+            // Resolve the src URL: prepend Supabase Storage CDN URL if it is a relative path
+            let imageSrc = item.src;
+            if (imageSrc && !imageSrc.startsWith("http")) {
+              const cleanPath = imageSrc.startsWith("/") ? imageSrc.slice(1) : imageSrc;
+              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yoibilrjlsbgkkwgqduq.supabase.co";
+              imageSrc = `${supabaseUrl}/storage/v1/object/public/media/${cleanPath}`;
+            }
+
+            return {
+              id: item.id || `db-${idx}`,
+              src: imageSrc,
+              alt: `Media Bong Aprilli JKT48 (${item.source || "Instagram"})`,
+              className: rotations[idx % rotations.length],
+              shadow: shadows[idx % shadows.length],
+            };
+          });
+          setItems(styledItems);
         }
       } catch (err) {
-        console.warn("Could not load dynamic scraped media:", err);
+        console.warn("Could not load dynamic scraped media from Supabase:", err);
       } finally {
         setLoading(false);
       }
