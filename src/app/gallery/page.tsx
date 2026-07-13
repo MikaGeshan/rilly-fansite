@@ -22,16 +22,18 @@ interface GalleryItem {
   alt: string;
   className: string;
   shadow: string;
+  link: string;
+  date: string;
 }
 
 function GalleryCard({
   item,
   idx,
-  setActiveImage,
+  setActiveItem,
 }: {
   item: GalleryItem;
   idx: number;
-  setActiveImage: (src: string) => void;
+  setActiveItem: (item: GalleryItem) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
 
@@ -42,7 +44,7 @@ function GalleryCard({
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: idx * 0.04 }}
       whileHover={{ y: -12, scale: 1.03, rotate: 0 }}
-      onClick={() => setActiveImage(item.src)}
+      onClick={() => setActiveItem(item)}
       className={`break-inside-avoid relative overflow-hidden rounded-[2.5rem] shadow-2xl group cursor-pointer border-4 border-white transition-all duration-300 ${item.className} mb-8`}
       style={{
         boxShadow: `0 20px 40px rgba(0,0,0,0.06), ${item.shadow}`,
@@ -67,6 +69,13 @@ function GalleryCard({
         }`}
       />
 
+      {/* Hover info overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
+        <p className="text-[10px] font-mono text-zinc-300 font-bold flex items-center gap-1">
+          📅 {item.date}
+        </p>
+      </div>
+
       {/* Soft aesthetic gradient border on hover */}
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
@@ -81,58 +90,87 @@ function GalleryCard({
 }
 
 export default function GalleryPage() {
+  const PAGE_SIZE = 12;
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+
+  async function loadScrapedMedia(pageNum: number, isInitial = false) {
+    try {
+      if (isInitial) setLoading(true);
+      else setLoadingMore(true);
+
+      const fromRange = (pageNum - 1) * PAGE_SIZE;
+      const toRange = pageNum * PAGE_SIZE - 1;
+
+      // Fetch only designated columns with range pagination
+      const { data, error } = await supabase
+        .from("media")
+        .select("payload, link, date, shortcode")
+        .order("date", { ascending: false })
+        .range(fromRange, toRange);
+
+      if (error) throw error;
+
+      if (Array.isArray(data)) {
+        const styledItems = data.map((item: any, idx: number) => {
+          const rotations = [
+            "rotate-[-2deg]",
+            "rotate-[1deg]",
+            "rotate-[-1deg]",
+            "rotate-[2deg]",
+          ];
+          const shadows = ["var(--shadow-pink)", "var(--shadow-yellow)"];
+
+          // Format date for the UI
+          const formattedDate = item.date
+            ? new Date(item.date).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })
+            : "Tanggal tidak diketahui";
+
+          const globalIdx = fromRange + idx;
+
+          return {
+            id: `${item.shortcode || "scraped"}-${globalIdx}`,
+            src: item.payload || "", // Pass Base64 data URL directly
+            alt: `Media Bong Aprilli JKT48`,
+            className: rotations[globalIdx % rotations.length],
+            shadow: shadows[globalIdx % shadows.length],
+            link: item.link || "",
+            date: formattedDate,
+          };
+        });
+
+        if (isInitial) {
+          setItems(styledItems);
+        } else {
+          setItems((prev) => [...prev, ...styledItems]);
+        }
+
+        // If we fetched fewer items than the page size, we reached the end
+        if (data.length < PAGE_SIZE) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load dynamic scraped media from Supabase:", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadScrapedMedia() {
-      try {
-        setLoading(true);
-        // Query media table from Supabase, ordered by date descending
-        const { data, error } = await supabase
-          .from("media")
-          .select("*")
-          .order("date", { ascending: false });
-
-        if (error) throw error;
-
-        if (Array.isArray(data) && data.length > 0) {
-          const styledItems = data.map((item: any, idx: number) => {
-            const rotations = [
-              "rotate-[-2deg]",
-              "rotate-[1deg]",
-              "rotate-[-1deg]",
-              "rotate-[2deg]",
-            ];
-            const shadows = ["var(--shadow-pink)", "var(--shadow-yellow)"];
-
-            // Resolve the src URL: prepend Supabase Storage CDN URL if it is a relative path
-            let imageSrc = item.src;
-            if (imageSrc && !imageSrc.startsWith("http")) {
-              const cleanPath = imageSrc.startsWith("/") ? imageSrc.slice(1) : imageSrc;
-              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yoibilrjlsbgkkwgqduq.supabase.co";
-              imageSrc = `${supabaseUrl}/storage/v1/object/public/media/${cleanPath}`;
-            }
-
-            return {
-              id: item.id || `db-${idx}`,
-              src: imageSrc,
-              alt: `Media Bong Aprilli JKT48 (${item.source || "Instagram"})`,
-              className: rotations[idx % rotations.length],
-              shadow: shadows[idx % shadows.length],
-            };
-          });
-          setItems(styledItems);
-        }
-      } catch (err) {
-        console.warn("Could not load dynamic scraped media from Supabase:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadScrapedMedia();
+    loadScrapedMedia(1, true);
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -207,7 +245,7 @@ export default function GalleryPage() {
               border: "1px solid rgba(236,72,153,0.22)",
             }}
           >
-            📸 Memori Visual
+            📸 Rilly`s Memories
           </span>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight shimmer-text mt-4">
             Rilly`s Daily Dose
@@ -230,38 +268,70 @@ export default function GalleryPage() {
           <div
             className="max-w-md mx-auto p-10 text-center rounded-[2.5rem] border border-pink-100"
             style={{
-              background: "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(253,242,248,0.8))",
-              boxShadow: "var(--shadow-pink)"
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(253,242,248,0.8))",
+              boxShadow: "var(--shadow-pink)",
             }}
           >
             <p className="text-4xl mb-4">🌸</p>
-            <h3 className="text-lg font-black text-gradient mb-2">Galeri Kosong</h3>
+            <h3 className="text-lg font-black text-gradient mb-2">
+              Galeri Kosong
+            </h3>
             <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
-              Belum ada foto yang tersedia saat ini. Silakan jalankan scraper media atau konfigurasikan feed Instagram.
+              Belum ada foto yang tersedia saat ini. Silakan jalankan scraper
+              media atau konfigurasikan feed Instagram.
             </p>
           </div>
         ) : (
-          <div className="columns-1 sm:columns-2 md:columns-3 gap-8 [column-fill:_balance]">
-            {items.map((item, idx) => (
-              <GalleryCard
-                key={item.id}
-                item={item}
-                idx={idx}
-                setActiveImage={setActiveImage}
-              />
-            ))}
-          </div>
-        ) }
+          <>
+            <div className="columns-1 sm:columns-2 md:columns-3 gap-8 [column-fill:_balance]">
+              {items.map((item, idx) => (
+                <GalleryCard
+                  key={item.id}
+                  item={item}
+                  idx={idx}
+                  setActiveItem={setActiveItem}
+                />
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center mt-16">
+                <button
+                  onClick={() => {
+                    const nextPage = page + 1;
+                    setPage(nextPage);
+                    loadScrapedMedia(nextPage, false);
+                  }}
+                  disabled={loadingMore}
+                  className="btn-gradient inline-flex items-center gap-2 text-xs px-8 py-3.5 cursor-pointer font-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loading variant="spinner" size="sm" />
+                      <span>Memuat Foto...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span>
+                      <span>Tampilkan Lebih Banyak</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </main>
 
       {/* ── Image Lightbox Modal ── */}
       <AnimatePresence>
-        {activeImage && (
+        {activeItem && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setActiveImage(null)}
+            onClick={() => setActiveItem(null)}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/90 backdrop-blur-md cursor-zoom-out"
           >
             <motion.div
@@ -269,19 +339,39 @@ export default function GalleryPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 30, stiffness: 200 }}
-              className="relative w-full max-w-4xl max-h-[85vh] aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/20"
+              className="relative w-full max-w-4xl max-h-[85vh] aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/20 flex flex-col bg-zinc-900"
               onClick={(e) => e.stopPropagation()}
             >
-              <Image
-                src={activeImage}
-                alt="Rilly Expanded View"
-                fill
-                className="object-contain"
-                sizes="100vw"
-              />
+              <div className="relative flex-grow w-full h-[75vh]">
+                <Image
+                  src={activeItem.src}
+                  alt={activeItem.alt}
+                  fill
+                  className="object-contain animate-fadeIn"
+                  sizes="100vw"
+                />
+              </div>
+
+              {/* Lightbox metadata footer */}
+              <div className="bg-zinc-950/60 backdrop-blur-md p-4 flex items-center justify-between border-t border-white/10 text-white">
+                <span className="text-xs font-mono text-zinc-300">
+                  📅 Diposting pada {activeItem.date}
+                </span>
+                {activeItem.link && (
+                  <a
+                    href={activeItem.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-pink-400 hover:text-pink-300 transition-colors duration-200 cursor-pointer"
+                  >
+                    Buka di Instagram ↗
+                  </a>
+                )}
+              </div>
+
               <button
-                onClick={() => setActiveImage(null)}
-                className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white text-lg font-bold transition-all cursor-pointer"
+                onClick={() => setActiveItem(null)}
+                className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white text-lg font-bold transition-all cursor-pointer z-10"
               >
                 ✕
               </button>
