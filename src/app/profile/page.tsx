@@ -447,7 +447,7 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35 }}
-          className="mt-20 relative z-10"
+          className="mt-20 relative z-10 scroll-mt-28"
         >
           <div
             className="flex flex-col sm:flex-row sm:items-end justify-between pb-6 mb-8 gap-4"
@@ -553,7 +553,7 @@ export default function ProfilePage() {
         {/* ════════════════════════════════════
             HASHTAG GUIDE
         ════════════════════════════════════ */}
-        <section id="hashtag-guide" className="relative mt-20 pb-8 overflow-hidden">
+        <section id="hashtag-guide" className="relative mt-20 pb-8 overflow-hidden scroll-mt-28">
           {/* Divider line */}
           <div className="gradient-divider mb-12" />
 

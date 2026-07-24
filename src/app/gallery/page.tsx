@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const PARTICLES = [
   { id: 1, size: 22, delay: 0, x: "10%", y: "15%", symbol: "🎵" },
@@ -24,6 +23,71 @@ interface GalleryItem {
   shadow: string;
   link: string;
   date: string;
+}
+
+interface MediaRow {
+  payload: string | null;
+  link: string | null;
+  date: string | null;
+  shortcode: string | null;
+}
+
+const PAGE_SIZE = 12;
+
+const ROTATIONS = [
+  "rotate-[-2deg]",
+  "rotate-[1deg]",
+  "rotate-[-1deg]",
+  "rotate-[2deg]",
+];
+const SHADOWS = ["var(--shadow-pink)", "var(--shadow-yellow)"];
+
+function mapRows(rows: MediaRow[], fromRange: number): GalleryItem[] {
+  return rows.map((item, idx) => {
+    const parsedDate = item.date ? new Date(item.date) : null;
+    const formattedDate =
+      parsedDate && !Number.isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "Tanggal tidak diketahui";
+
+    const globalIdx = fromRange + idx;
+
+    return {
+      id: `${item.shortcode || "scraped"}-${globalIdx}`,
+      src: item.payload || "", // Base64 data URL stored in the DB
+      alt: `Media Bong Aprilli JKT48`,
+      className: ROTATIONS[globalIdx % ROTATIONS.length],
+      shadow: SHADOWS[globalIdx % SHADOWS.length],
+      link: item.link || "",
+      date: formattedDate,
+    };
+  });
+}
+
+// Fetches a single page of media. Only performs the query + mapping; it never
+// touches React state, so callers control loading/error transitions.
+async function fetchMediaPage(pageNum: number): Promise<GalleryItem[]> {
+  if (!supabase) return [];
+
+  const fromRange = (pageNum - 1) * PAGE_SIZE;
+  const toRange = pageNum * PAGE_SIZE - 1;
+
+  // A stable secondary sort keeps offset pagination consistent when multiple
+  // rows share the same date.
+  const { data, error } = await supabase
+    .from("media")
+    .select("payload, link, date, shortcode")
+    .order("date", { ascending: false })
+    .order("shortcode", { ascending: false })
+    .range(fromRange, toRange);
+
+  if (error) throw error;
+
+  return mapRows((data ?? []) as MediaRow[], fromRange);
 }
 
 function GalleryCard({
@@ -90,88 +154,71 @@ function GalleryCard({
 }
 
 export default function GalleryPage() {
-  const PAGE_SIZE = 12;
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [items, setItems] = useState<GalleryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(1);
 
-  async function loadScrapedMedia(pageNum: number, isInitial = false) {
-    try {
-      if (isInitial) setLoading(true);
-      else setLoadingMore(true);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
 
-      const fromRange = (pageNum - 1) * PAGE_SIZE;
-      const toRange = pageNum * PAGE_SIZE - 1;
-
-      // Fetch only designated columns with range pagination
-      const { data, error } = await supabase
-        .from("media")
-        .select("payload, link, date, shortcode")
-        .order("date", { ascending: false })
-        .range(fromRange, toRange);
-
-      if (error) throw error;
-
-      if (Array.isArray(data)) {
-        const styledItems = data.map((item: any, idx: number) => {
-          const rotations = [
-            "rotate-[-2deg]",
-            "rotate-[1deg]",
-            "rotate-[-1deg]",
-            "rotate-[2deg]",
-          ];
-          const shadows = ["var(--shadow-pink)", "var(--shadow-yellow)"];
-
-          // Format date for the UI
-          const formattedDate = item.date
-            ? new Date(item.date).toLocaleDateString("id-ID", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })
-            : "Tanggal tidak diketahui";
-
-          const globalIdx = fromRange + idx;
-
-          return {
-            id: `${item.shortcode || "scraped"}-${globalIdx}`,
-            src: item.payload || "", // Pass Base64 data URL directly
-            alt: `Media Bong Aprilli JKT48`,
-            className: rotations[globalIdx % rotations.length],
-            shadow: shadows[globalIdx % shadows.length],
-            link: item.link || "",
-            date: formattedDate,
-          };
-        });
-
-        if (isInitial) {
-          setItems(styledItems);
-        } else {
-          setItems((prev) => [...prev, ...styledItems]);
-        }
-
-        // If we fetched fewer items than the page size, we reached the end
-        if (data.length < PAGE_SIZE) {
-          setHasMore(false);
-        } else {
-          setHasMore(true);
-        }
+    let active = true;
+    (async () => {
+      try {
+        const initial = await fetchMediaPage(1);
+        if (!active) return;
+        setItems(initial);
+        setHasMore(initial.length === PAGE_SIZE);
+        setError(false);
+      } catch (err) {
+        console.warn("Could not load scraped media from Supabase:", err);
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
       }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleLoadMore() {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    setLoadingMore(true);
+    try {
+      const more = await fetchMediaPage(nextPage);
+      setItems((prev) => [...prev, ...more]);
+      setHasMore(more.length === PAGE_SIZE);
+      setError(false);
     } catch (err) {
-      console.warn("Could not load dynamic scraped media from Supabase:", err);
+      console.warn("Could not load more scraped media from Supabase:", err);
+      setError(true);
     } finally {
-      setLoading(false);
       setLoadingMore(false);
     }
   }
 
-  useEffect(() => {
-    loadScrapedMedia(1, true);
-  }, []);
+  async function handleRetry() {
+    setPage(1);
+    setLoading(true);
+    setError(false);
+    try {
+      const initial = await fetchMediaPage(1);
+      setItems(initial);
+      setHasMore(initial.length === PAGE_SIZE);
+    } catch (err) {
+      console.warn("Could not load scraped media from Supabase:", err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleMouseMove = (e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -260,9 +307,50 @@ export default function GalleryPage() {
         </div>
 
         {/* ── Masonry Column Gallery Grid ── */}
-        {loading ? (
+        {!isSupabaseConfigured ? (
+          <div
+            className="max-w-md mx-auto p-10 text-center rounded-[2.5rem] border border-pink-100"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(253,242,248,0.8))",
+              boxShadow: "var(--shadow-pink)",
+            }}
+          >
+            <p className="text-4xl mb-4">⚙️</p>
+            <h3 className="text-lg font-black text-gradient mb-2">
+              Galeri Belum Dikonfigurasi
+            </h3>
+            <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
+              Koneksi ke database belum tersedia. Silahkan coba lagi nanti.
+            </p>
+          </div>
+        ) : loading ? (
           <div className="flex flex-col items-center justify-center min-h-[350px]">
             <Loading variant="dots" size="lg" label="Memuat Galeri Rilly..." />
+          </div>
+        ) : error && items.length === 0 ? (
+          <div
+            className="max-w-md mx-auto p-10 text-center rounded-[2.5rem] border border-pink-100"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(253,242,248,0.8))",
+              boxShadow: "var(--shadow-pink)",
+            }}
+          >
+            <p className="text-4xl mb-4">😢</p>
+            <h3 className="text-lg font-black text-gradient mb-2">
+              Gagal Memuat Galeri
+            </h3>
+            <p className="text-xs font-semibold mb-6" style={{ color: "#7b5572" }}>
+              Gagal mendapatkan media. Silahkan coba lagi nanti.
+            </p>
+            <button
+              onClick={handleRetry}
+              className="btn-gradient inline-flex items-center gap-2 text-xs px-6 py-3 cursor-pointer font-black rounded-full"
+            >
+              <span>🔄</span>
+              <span>Coba Lagi</span>
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div
@@ -278,7 +366,7 @@ export default function GalleryPage() {
               Galeri Kosong
             </h3>
             <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
-              Gagal mendapatkan media. Silahkan coba lagi nanti
+              Belum ada foto yang tersedia saat ini.
             </p>
           </div>
         ) : (
@@ -297,11 +385,7 @@ export default function GalleryPage() {
             {hasMore && (
               <div className="flex justify-center mt-16">
                 <button
-                  onClick={() => {
-                    const nextPage = page + 1;
-                    setPage(nextPage);
-                    loadScrapedMedia(nextPage, false);
-                  }}
+                  onClick={handleLoadMore}
                   disabled={loadingMore}
                   className="btn-gradient inline-flex items-center gap-2 text-xs px-8 py-3.5 cursor-pointer font-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
                 >
@@ -342,12 +426,11 @@ export default function GalleryPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative flex-grow w-full h-[75vh]">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={activeItem.src}
                   alt={activeItem.alt}
-                  fill
-                  className="object-contain animate-fadeIn"
-                  sizes="100vw"
+                  className="absolute inset-0 w-full h-full object-contain animate-fadeIn"
                 />
               </div>
 
