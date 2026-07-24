@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
+import { CursorSpotlight } from "@/components/ui/cursor-spotlight";
+import { FloatingParticles, type Particle } from "@/components/ui/floating-particles";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useMousePosition } from "@/hooks/use-mouse-position";
 
 interface ShowData {
   title: string;
@@ -13,7 +17,7 @@ interface ShowData {
   start_time: string;
 }
 
-const PARTICLES = [
+const PARTICLES: Particle[] = [
   { id: 1, size: 22, delay: 0, x: "5%", y: "20%", symbol: "🎵" },
   { id: 2, size: 34, delay: 2, x: "90%", y: "15%", symbol: "🌸" },
   { id: 3, size: 26, delay: 4, x: "40%", y: "50%", symbol: "✨" },
@@ -22,7 +26,7 @@ const PARTICLES = [
 ];
 
 export default function ProfilePage() {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const { mousePos, handleMouseMove } = useMousePosition();
   const [shows, setShows] = useState<ShowData[]>([]);
   const [loadingShows, setLoadingShows] = useState(true);
 
@@ -42,7 +46,8 @@ export default function ProfilePage() {
           }
         }
         throw new Error("Failed to load schedule");
-      } catch {
+      } catch (error) {
+        console.error("Failed to load schedule:", error);
         setShows([]);
       } finally {
         setLoadingShows(false);
@@ -50,9 +55,6 @@ export default function ProfilePage() {
     };
     loadShows();
   }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) =>
-    setMousePos({ x: e.clientX, y: e.clientY });
 
   const [copiedHashtag, setCopiedHashtag] = useState<string | null>(null);
 
@@ -125,15 +127,11 @@ export default function ProfilePage() {
       style={{ background: "var(--bg-page)" }}
     >
       {/* ── Cursor spotlight ── */}
-      <motion.div
-        className="pointer-events-none fixed -z-10 h-[480px] w-[480px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(236,72,153,0.11) 0%, rgba(251,191,36,0.07) 50%, transparent 70%)",
-          filter: "blur(55px)",
-        }}
-        animate={{ x: mousePos.x - 240, y: mousePos.y - 240 }}
-        transition={{ type: "spring", damping: 45, stiffness: 75, mass: 0.8 }}
+      <CursorSpotlight
+        mousePos={mousePos}
+        blur={55}
+        pinkOpacity={0.11}
+        yellowOpacity={0.07}
       />
 
       {/* ── Ambient orbs ── */}
@@ -146,32 +144,14 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Floating emoji particles ── */}
-      <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-        style={{ zIndex: -5 }}
-      >
-        {PARTICLES.map((p) => (
-          <motion.div
-            key={p.id}
-            style={{
-              position: "absolute",
-              left: p.x,
-              top: p.y,
-              fontSize: p.size,
-              opacity: 0.1,
-            }}
-            animate={{ y: [0, -28, 0], x: [0, 12, 0], rotate: [0, 360] }}
-            transition={{
-              duration: 13 + p.id * 2.5,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: p.delay,
-            }}
-          >
-            {p.symbol}
-          </motion.div>
-        ))}
-      </div>
+      <FloatingParticles
+        particles={PARTICLES}
+        opacity={0.1}
+        floatY={28}
+        floatX={12}
+        durationBase={13}
+        durationFactor={2.5}
+      />
 
       <Header />
 
@@ -527,25 +507,11 @@ export default function ProfilePage() {
                 ))}
               </div>
             ) : (
-              <div
-                className="text-center py-16 rounded-[2rem] glass-card"
-                style={{
-                  border: "1.5px dashed rgba(236,72,153,0.25)",
-                  background: "rgba(236,72,153,0.03)",
-                  boxShadow: "var(--shadow-card)",
-                }}
-              >
-                <p className="text-3xl mb-3">🎭</p>
-                <h4
-                  className="font-black tracking-widest text-sm uppercase"
-                  style={{ color: "#b494a9" }}
-                >
-                  To Be Announced
-                </h4>
-                <p className="text-xs mt-1" style={{ color: "#b494a9" }}>
-                  Jadwal belum tersedia untuk bulan ini.
-                </p>
-              </div>
+              <EmptyState
+                emoji="🎭"
+                title="To Be Announced"
+                description="Jadwal belum tersedia untuk bulan ini."
+              />
             )}
           </div>
         </motion.section>
