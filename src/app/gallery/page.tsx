@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
+import { CursorSpotlight } from "@/components/ui/cursor-spotlight";
+import { FloatingParticles, type Particle } from "@/components/ui/floating-particles";
+import { useMousePosition } from "@/hooks/use-mouse-position";
 import { supabase } from "@/lib/supabase";
+import { formatDateID } from "@/lib/utils";
 
-const PARTICLES = [
+const PARTICLES: Particle[] = [
   { id: 1, size: 22, delay: 0, x: "10%", y: "15%", symbol: "🎵" },
   { id: 2, size: 34, delay: 2.2, x: "85%", y: "25%", symbol: "🌸" },
   { id: 3, size: 26, delay: 4.5, x: "40%", y: "45%", symbol: "✨" },
@@ -91,7 +95,7 @@ function GalleryCard({
 
 export default function GalleryPage() {
   const PAGE_SIZE = 12;
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const { mousePos, handleMouseMove } = useMousePosition();
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,11 +132,7 @@ export default function GalleryPage() {
 
           // Format date for the UI
           const formattedDate = item.date
-            ? new Date(item.date).toLocaleDateString("id-ID", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })
+            ? formatDateID(item.date)
             : "Tanggal tidak diketahui";
 
           const globalIdx = fromRange + idx;
@@ -173,10 +173,6 @@ export default function GalleryPage() {
     loadScrapedMedia(1, true);
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
-  };
-
   return (
     <div
       onMouseMove={handleMouseMove}
@@ -184,16 +180,7 @@ export default function GalleryPage() {
       style={{ background: "var(--bg-page)" }}
     >
       {/* ── Spotlight Cursor ── */}
-      <motion.div
-        className="pointer-events-none fixed -z-10 h-[480px] w-[480px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(236,72,153,0.12) 0%, rgba(251,191,36,0.08) 50%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-        animate={{ x: mousePos.x - 240, y: mousePos.y - 240 }}
-        transition={{ type: "spring", damping: 45, stiffness: 75, mass: 0.8 }}
-      />
+      <CursorSpotlight mousePos={mousePos} />
 
       {/* ── Ambient Background Orbs ── */}
       <div
@@ -205,32 +192,7 @@ export default function GalleryPage() {
       </div>
 
       {/* ── Floating Emoji Particles ── */}
-      <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-        style={{ zIndex: -5 }}
-      >
-        {PARTICLES.map((p) => (
-          <motion.div
-            key={p.id}
-            style={{
-              position: "absolute",
-              left: p.x,
-              top: p.y,
-              fontSize: p.size,
-              opacity: 0.12,
-            }}
-            animate={{ y: [0, -30, 0], x: [0, 10, 0], rotate: [0, 360] }}
-            transition={{
-              duration: 12 + p.id * 3,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: p.delay,
-            }}
-          >
-            {p.symbol}
-          </motion.div>
-        ))}
-      </div>
+      <FloatingParticles particles={PARTICLES} />
 
       <Header />
 

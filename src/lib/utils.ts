@@ -37,3 +37,14 @@ export function formatDate(date: Date | string | number): string {
     year: "numeric",
   });
 }
+
+/**
+ * Format a date into a readable Indonesian (id-ID) format, e.g. "1 April 2026".
+ */
+export function formatDateID(date: Date | string | number): string {
+  return new Date(date).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
