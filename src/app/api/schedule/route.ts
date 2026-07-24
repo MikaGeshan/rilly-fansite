@@ -57,6 +57,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     const { data: schedulesResponse } = await jkt48Api.get<SchedulesResponse>(
       `/schedules?lang=id&month=${month}&year=${year}&type=show`,
     );
+
+    if (!Array.isArray(schedulesResponse?.data)) {
+      throw new Error(
+        schedulesResponse?.message ?? "Unexpected schedules response shape",
+      );
+    }
+
     const codes = schedulesResponse.data.map((show) => show.reference_code);
 
     // Fetch semua show
@@ -65,7 +72,10 @@ export async function GET(request: Request): Promise<NextResponse> {
         jkt48Api
           .get<ShowResponse>(`/theater-shows/${code}?lang=id`)
           .then((res) => res.data)
-          .catch(() => null),
+          .catch((error) => {
+            console.error(`Failed to fetch theater show ${code}:`, error);
+            return null;
+          }),
       ),
     );
 
@@ -79,10 +89,14 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(filteredShows);
   } catch (error) {
+    console.error("Failed to fetch schedules:", error);
+
     const message =
       error instanceof AxiosError
         ? error.message
-        : "=== failed to fetch schedules";
+        : error instanceof Error
+          ? error.message
+          : "Failed to fetch schedules";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
