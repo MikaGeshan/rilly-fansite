@@ -46,12 +46,42 @@ const jkt48Api = axios.create({
   },
 });
 
+function parseIntInRange(
+  value: string | null,
+  fallback: number,
+  min: number,
+  max: number,
+): number | null {
+  if (value === null) return fallback;
+  if (!/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  if (parsed < min || parsed > max) return null;
+  return parsed;
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const now = new Date();
-    const month = searchParams.get("month") ?? String(now.getMonth() + 1);
-    const year = searchParams.get("year") ?? String(now.getFullYear());
+    const month = parseIntInRange(
+      searchParams.get("month"),
+      now.getMonth() + 1,
+      1,
+      12,
+    );
+    const year = parseIntInRange(
+      searchParams.get("year"),
+      now.getFullYear(),
+      2000,
+      2100,
+    );
+
+    if (month === null || year === null) {
+      return NextResponse.json(
+        { error: "Invalid month or year parameter" },
+        { status: 400 },
+      );
+    }
 
     // Fetch data jadwal
     const { data: schedulesResponse } = await jkt48Api.get<SchedulesResponse>(
@@ -70,7 +100,9 @@ export async function GET(request: Request): Promise<NextResponse> {
     const showResults = await Promise.all(
       codes.map((code) =>
         jkt48Api
-          .get<ShowResponse>(`/theater-shows/${code}?lang=id`)
+          .get<ShowResponse>(
+            `/theater-shows/${encodeURIComponent(code)}?lang=id`,
+          )
           .then((res) => res.data)
           .catch((error) => {
             console.error(`Failed to fetch theater show ${code}:`, error);
