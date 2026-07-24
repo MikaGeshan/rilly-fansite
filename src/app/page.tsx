@@ -6,6 +6,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
+import { CursorSpotlight } from "@/components/ui/cursor-spotlight";
+import { FloatingParticles, type Particle } from "@/components/ui/floating-particles";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useMousePosition } from "@/hooks/use-mouse-position";
+import { formatDateID } from "@/lib/utils";
 
 interface FanLetter {
   id: string;
@@ -50,7 +55,7 @@ const DEFAULT_LETTERS: FanLetter[] = [
 /* ---------------------------------------------------------------
    Floating particle config
 --------------------------------------------------------------- */
-const PARTICLES = [
+const PARTICLES: Particle[] = [
   { id: 1, size: 22, delay: 0,   x: "7%",  y: "14%", symbol: "🎵" },
   { id: 2, size: 34, delay: 2.2, x: "88%", y: "20%", symbol: "🌸" },
   { id: 3, size: 26, delay: 4.5, x: "44%", y: "40%", symbol: "✨" },
@@ -60,7 +65,7 @@ const PARTICLES = [
 ];
 
 export default function Home() {
-  const [mousePos, setMousePos]           = useState({ x: 0, y: 0 });
+  const { mousePos, handleMouseMove }     = useMousePosition();
   const [letters, setLetters]             = useState<FanLetter[]>([]);
   const [sender, setSender]               = useState("");
   const [type, setType]                   = useState<FanLetter["type"]>("Dukungan");
@@ -83,9 +88,6 @@ export default function Home() {
     }
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent) =>
-    setMousePos({ x: e.clientX, y: e.clientY });
-
   const handleSubmitLetter = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sender.trim() || !message.trim()) return;
@@ -96,11 +98,7 @@ export default function Home() {
       type,
       message: message.trim(),
       theme: themeOption,
-      createdAt: new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }),
+      createdAt: formatDateID(new Date()),
       likes: 0
     };
 
@@ -139,15 +137,7 @@ export default function Home() {
       style={{ background: "var(--bg-page)" }}
     >
       {/* ── Cursor spotlight ── */}
-      <motion.div
-        className="pointer-events-none fixed -z-10 h-[500px] w-[500px] rounded-full"
-        style={{
-          background: "radial-gradient(circle, rgba(236,72,153,0.12) 0%, rgba(251,191,36,0.08) 50%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-        animate={{ x: mousePos.x - 250, y: mousePos.y - 250 }}
-        transition={{ type: "spring", damping: 45, stiffness: 75, mass: 0.8 }}
-      />
+      <CursorSpotlight mousePos={mousePos} size={500} />
 
       {/* ── Ambient background orbs ── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: -20 }}>
@@ -157,18 +147,14 @@ export default function Home() {
       </div>
 
       {/* ── Floating emoji particles ── */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: -5 }}>
-        {PARTICLES.map((p) => (
-          <motion.div
-            key={p.id}
-            style={{ position: "absolute", left: p.x, top: p.y, fontSize: p.size, opacity: 0.13 }}
-            animate={{ y: [0, -32, 0], x: [0, 12, 0], rotate: [0, 360] }}
-            transition={{ duration: 11 + p.id * 2.8, repeat: Infinity, ease: "easeInOut", delay: p.delay }}
-          >
-            {p.symbol}
-          </motion.div>
-        ))}
-      </div>
+      <FloatingParticles
+        particles={PARTICLES}
+        opacity={0.13}
+        floatY={32}
+        floatX={12}
+        durationBase={11}
+        durationFactor={2.8}
+      />
 
       <Header />
 
@@ -592,25 +578,12 @@ export default function Home() {
                       );
                     })
                   ) : (
-                    <div
-                      className="sm:col-span-2 text-center py-16 rounded-[2rem] glass-card"
-                      style={{
-                        border: "1.5px dashed rgba(236,72,153,0.25)",
-                        background: "rgba(236,72,153,0.03)",
-                        boxShadow: "var(--shadow-card)"
-                      }}
-                    >
-                      <p className="text-3xl mb-3">📬</p>
-                      <h4
-                        className="font-black tracking-widest text-sm uppercase"
-                        style={{ color: "#b494a9" }}
-                      >
-                        Kotak Surat Kosong
-                      </h4>
-                      <p className="text-xs mt-1" style={{ color: "#b494a9" }}>
-                        Belum ada surat dukungan. Kirimkan surat pertamamu!
-                      </p>
-                    </div>
+                    <EmptyState
+                      className="sm:col-span-2"
+                      emoji="📬"
+                      title="Kotak Surat Kosong"
+                      description="Belum ada surat dukungan. Kirimkan surat pertamamu!"
+                    />
                   )}
                 </div>
               </motion.div>
