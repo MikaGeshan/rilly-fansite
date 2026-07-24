@@ -98,7 +98,7 @@ export function Footer() {
             { name: "Home", href: "/" },
             { name: "Profile", href: "/profile" },
             { name: "Gallery", href: "/gallery" },
-            { name: "Hashtags", href: "/#hashtag-guide" },
+            { name: "Hashtags", href: "/profile#hashtag-guide" },
           ].map((item) => (
             <Link
               key={item.name}
