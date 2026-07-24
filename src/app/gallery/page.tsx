@@ -98,11 +98,13 @@ export default function GalleryPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
 
   async function loadScrapedMedia(pageNum: number, isInitial = false) {
     try {
       if (isInitial) setLoading(true);
       else setLoadingMore(true);
+      setError(null);
 
       const fromRange = (pageNum - 1) * PAGE_SIZE;
       const toRange = pageNum * PAGE_SIZE - 1;
@@ -162,7 +164,12 @@ export default function GalleryPage() {
         }
       }
     } catch (err) {
-      console.warn("Could not load dynamic scraped media from Supabase:", err);
+      console.error("Could not load scraped media from Supabase:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memuat media. Silakan coba lagi nanti.",
+      );
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -264,6 +271,30 @@ export default function GalleryPage() {
           <div className="flex flex-col items-center justify-center min-h-[350px]">
             <Loading variant="dots" size="lg" label="Memuat Galeri Rilly..." />
           </div>
+        ) : error && items.length === 0 ? (
+          <div
+            className="max-w-md mx-auto p-10 text-center rounded-[2.5rem] border border-pink-100"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(253,242,248,0.8))",
+              boxShadow: "var(--shadow-pink)",
+            }}
+          >
+            <p className="text-4xl mb-4">😢</p>
+            <h3 className="text-lg font-black text-gradient mb-2">
+              Gagal Memuat Galeri
+            </h3>
+            <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
+              {error}
+            </p>
+            <button
+              onClick={() => loadScrapedMedia(1, true)}
+              className="btn-gradient mt-6 inline-flex items-center gap-2 text-xs px-6 py-3 cursor-pointer font-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <span>🔄</span>
+              <span>Coba Lagi</span>
+            </button>
+          </div>
         ) : items.length === 0 ? (
           <div
             className="max-w-md mx-auto p-10 text-center rounded-[2.5rem] border border-pink-100"
@@ -278,7 +309,7 @@ export default function GalleryPage() {
               Galeri Kosong
             </h3>
             <p className="text-xs font-semibold" style={{ color: "#7b5572" }}>
-              Gagal mendapatkan media. Silahkan coba lagi nanti
+              Belum ada media untuk ditampilkan.
             </p>
           </div>
         ) : (
@@ -293,6 +324,21 @@ export default function GalleryPage() {
                 />
               ))}
             </div>
+
+            {error && (
+              <p
+                className="mt-8 text-center text-xs font-semibold"
+                style={{ color: "#ec4899" }}
+              >
+                {error} —{" "}
+                <button
+                  onClick={() => loadScrapedMedia(page, false)}
+                  className="underline cursor-pointer"
+                >
+                  Coba lagi
+                </button>
+              </p>
+            )}
 
             {hasMore && (
               <div className="flex justify-center mt-16">

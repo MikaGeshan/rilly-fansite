@@ -42,7 +42,8 @@ export default function ProfilePage() {
           }
         }
         throw new Error("Failed to load schedule");
-      } catch {
+      } catch (error) {
+        console.error("Failed to load schedule:", error);
         setShows([]);
       } finally {
         setLoadingShows(false);
