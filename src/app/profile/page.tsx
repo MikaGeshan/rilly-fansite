@@ -1,17 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
-
-interface ShowData {
-  title: string;
-  date: string;
-  start_time: string;
-}
+import { useProfileStore } from "@/stores/profile-store";
 
 const profile = {
   fullName: "Bong Aprilli Paskah",
@@ -226,35 +221,15 @@ function ProfilePortraitShowcase() {
 }
 
 export default function ProfilePage() {
-  const [shows, setShows] = useState<ShowData[]>([]);
-  const [loadingShows, setLoadingShows] = useState(true);
-  const [copiedHashtag, setCopiedHashtag] = useState<string | null>(null);
+  const shows = useProfileStore((state) => state.shows);
+  const loadingShows = useProfileStore((state) => state.loadingShows);
+  const copiedHashtag = useProfileStore((state) => state.copiedHashtag);
+  const loadShows = useProfileStore((state) => state.loadShows);
+  const copyHashtag = useProfileStore((state) => state.copyHashtag);
 
   useEffect(() => {
-    const loadShows = async () => {
-      try {
-        const now = new Date();
-        const res = await fetch(
-          `/api/schedule?month=${now.getMonth() + 1}&year=${now.getFullYear()}`,
-        );
-        if (!res.ok) throw new Error("Failed to load schedule");
-        const data = await res.json();
-        setShows(Array.isArray(data) ? data : []);
-      } catch {
-        setShows([]);
-      } finally {
-        setLoadingShows(false);
-      }
-    };
-
     loadShows();
-  }, []);
-
-  const handleCopyHashtag = (tag: string) => {
-    navigator.clipboard.writeText(tag);
-    setCopiedHashtag(tag);
-    setTimeout(() => setCopiedHashtag(null), 1800);
-  };
+  }, [loadShows]);
 
   return (
     <div className="site-shell flex min-h-screen flex-col">
@@ -450,7 +425,7 @@ export default function ProfilePage() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleCopyHashtag(tag)}
+                  onClick={() => copyHashtag(tag)}
                   className="mt-5 text-xs font-black uppercase text-[var(--pink-deep)]"
                 >
                   {copiedHashtag === tag ? "Copied" : "Copy Tag"}

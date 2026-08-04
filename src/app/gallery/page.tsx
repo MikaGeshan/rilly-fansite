@@ -6,22 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { Loading } from "@/components/ui/loading";
-import { supabase } from "@/lib/supabase";
-
-interface GalleryItem {
-  id: string;
-  src: string;
-  alt: string;
-  link: string;
-  date: string;
-}
-
-interface SupabaseMediaRow {
-  payload?: string | null;
-  link?: string | null;
-  date?: string | null;
-  shortcode?: string | null;
-}
+import { type GalleryItem, useGalleryStore } from "@/stores/gallery-store";
 
 function GalleryCard({
   item,
@@ -71,62 +56,20 @@ function GalleryCard({
 }
 
 export default function GalleryPage() {
-  const PAGE_SIZE = 12;
-  const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
-  const [items, setItems] = useState<GalleryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadScrapedMedia(pageNum: number, isInitial = false) {
-    try {
-      if (isInitial) setLoading(true);
-      else setLoadingMore(true);
-      setError(null);
-
-      const fromRange = (pageNum - 1) * PAGE_SIZE;
-      const toRange = pageNum * PAGE_SIZE - 1;
-      const { data, error } = await supabase
-        .from("media")
-        .select("payload, link, date, shortcode")
-        .order("date", { ascending: false })
-        .range(fromRange, toRange);
-
-      if (error) throw error;
-
-      if (Array.isArray(data)) {
-        const nextItems = (data as SupabaseMediaRow[]).map((item, idx) => ({
-          id: `${item.shortcode || "scraped"}-${fromRange + idx}`,
-          src: item.payload || "",
-          alt: "Media Bong Aprilli JKT48",
-          link: item.link || "",
-          date: item.date
-            ? new Date(item.date).toLocaleDateString("id-ID", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })
-            : "Tanggal tidak diketahui",
-        }));
-
-        setItems((prev) => (isInitial ? nextItems : [...prev, ...nextItems]));
-        setHasMore(data.length === PAGE_SIZE);
-      }
-    } catch (err) {
-      console.warn("Could not load dynamic scraped media from Supabase:", err);
-      if (isInitial) setItems([]);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }
+  const activeItem = useGalleryStore((state) => state.activeItem);
+  const items = useGalleryStore((state) => state.items);
+  const loading = useGalleryStore((state) => state.loading);
+  const loadingMore = useGalleryStore((state) => state.loadingMore);
+  const hasMore = useGalleryStore((state) => state.hasMore);
+  const error = useGalleryStore((state) => state.error);
+  const setActiveItem = useGalleryStore((state) => state.setActiveItem);
+  const loadPage = useGalleryStore((state) => state.loadPage);
+  const loadNextPage = useGalleryStore((state) => state.loadNextPage);
+  const retryCurrentPage = useGalleryStore((state) => state.retryCurrentPage);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadScrapedMedia(1, true);
-  }, []);
+    loadPage(1, true);
+  }, [loadPage]);
 
   return (
     <div className="site-shell flex min-h-screen flex-col">
@@ -168,7 +111,7 @@ export default function GalleryPage() {
               {error}
             </p>
             <button
-              onClick={() => loadScrapedMedia(1, true)}
+              onClick={() => loadPage(1, true)}
               className="btn-gradient mt-6 inline-flex items-center gap-2 text-xs px-6 py-3 cursor-pointer font-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <span>🔄</span>
@@ -202,7 +145,7 @@ export default function GalleryPage() {
               >
                 {error} —{" "}
                 <button
-                  onClick={() => loadScrapedMedia(page, false)}
+                  onClick={() => retryCurrentPage()}
                   className="underline cursor-pointer"
                 >
                   Coba lagi
@@ -214,11 +157,7 @@ export default function GalleryPage() {
               <div className="mt-12 flex justify-center">
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextPage = page + 1;
-                    setPage(nextPage);
-                    loadScrapedMedia(nextPage, false);
-                  }}
+                  onClick={() => loadNextPage()}
                   disabled={loadingMore}
                   className="btn-gradient px-6 py-3 text-sm disabled:opacity-60"
                 >

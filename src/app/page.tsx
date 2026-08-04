@@ -1,62 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Image from "next/image";
+import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
-import { CursorSpotlight } from "@/components/ui/cursor-spotlight";
-import {
-  FloatingParticles,
-  type Particle,
-} from "@/components/ui/floating-particles";
-import { EmptyState } from "@/components/ui/empty-state";
-import { useMousePosition } from "@/hooks/use-mouse-position";
-import { formatDateID } from "@/lib/utils";
-
-interface FanLetter {
-  id: string;
-  sender: string;
-  type: "Dukungan" | "Penyemangat" | "Harapan" | "Salam Panggung";
-  message: string;
-  theme: "pink" | "yellow" | "gradient" | "glass";
-  createdAt: string;
-  likes: number;
-}
-
-const DEFAULT_LETTERS: FanLetter[] = [
-  {
-    id: "1",
-    sender: "Reza Prasetya",
-    type: "Dukungan",
-    message:
-      "Rilly, semangat terus ya jalani hari-hari sebagai Trainee JKT48! Bakat menyanyi kamu luar biasa merdu, kami semua di sini akan selalu mendukungmu sampai jadi member reguler!",
-    theme: "pink",
-    createdAt: "11 Juli 2026",
-    likes: 12,
-  },
-  {
-    id: "2",
-    sender: "Indah Wahyuni",
-    type: "Penyemangat",
-    message:
-      "Suara kamu pas bawain Rapsodi di JKT48 School keren banget. Harmoni indah yang selalu berirama di benakku, seperti jikoshoukai-mu!",
-    theme: "yellow",
-    createdAt: "10 Juli 2026",
-    likes: 8,
-  },
-  {
-    id: "3",
-    sender: "Dwi Nugroho",
-    type: "Harapan",
-    message:
-      "Semoga Rilly selalu diberikan kesehatan dan kelancaran dalam setiap show teater JKT48. Tetap bersinar dan nikmati prosesnya.",
-    theme: "gradient",
-    createdAt: "09 Juli 2026",
-    likes: 15,
-  },
-];
+import { type FanLetter, useFanLetterStore } from "@/stores/fan-letter-store";
+import { ImageFrame } from "@/components/ui/image-frame";
 
 const themeStyles: Record<FanLetter["theme"], string> = {
   pink: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,226,241,0.92))",
@@ -68,63 +18,23 @@ const themeStyles: Record<FanLetter["theme"], string> = {
 };
 
 export default function Home() {
-  const [letters, setLetters] = useState<FanLetter[]>([]);
-  const [sender, setSender] = useState("");
-  const [type, setType] = useState<FanLetter["type"]>("Dukungan");
-  const [message, setMessage] = useState("");
-  const [themeOption, setThemeOption] = useState<FanLetter["theme"]>("pink");
-  const [submitted, setSubmitted] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("rilly_fan_letters");
-    if (!saved) {
-      localStorage.setItem(
-        "rilly_fan_letters",
-        JSON.stringify(DEFAULT_LETTERS),
-      );
-      queueMicrotask(() => setLetters(DEFAULT_LETTERS));
-      return;
-    }
-
-    try {
-      const parsedLetters = JSON.parse(saved);
-      queueMicrotask(() => setLetters(parsedLetters));
-    } catch {
-      queueMicrotask(() => setLetters(DEFAULT_LETTERS));
-    }
-  }, []);
+  const letters = useFanLetterStore((state) => state.letters);
+  const sender = useFanLetterStore((state) => state.sender);
+  const type = useFanLetterStore((state) => state.type);
+  const message = useFanLetterStore((state) => state.message);
+  const themeOption = useFanLetterStore((state) => state.themeOption);
+  const submitted = useFanLetterStore((state) => state.submitted);
+  const setSender = useFanLetterStore((state) => state.setSender);
+  const setType = useFanLetterStore((state) => state.setType);
+  const setMessage = useFanLetterStore((state) => state.setMessage);
+  const setThemeOption = useFanLetterStore((state) => state.setThemeOption);
+  const submitLetter = useFanLetterStore((state) => state.submitLetter);
+  const likeLetter = useFanLetterStore((state) => state.likeLetter);
+  const deleteLetter = useFanLetterStore((state) => state.deleteLetter);
 
   const handleSubmitLetter = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sender.trim() || !message.trim()) return;
-
-    const newLetter: FanLetter = {
-      id: Date.now().toString(),
-      sender: sender.trim(),
-      type,
-      message: message.trim(),
-      theme: themeOption,
-      createdAt: new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }),
-      likes: 0,
-    };
-
-    const updated = [newLetter, ...letters];
-    setLetters(updated);
-    localStorage.setItem("rilly_fan_letters", JSON.stringify(updated));
-    setSender("");
-    setMessage("");
-    setThemeOption("pink");
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 2600);
-  };
-
-  const updateLetters = (next: FanLetter[]) => {
-    setLetters(next);
-    localStorage.setItem("rilly_fan_letters", JSON.stringify(next));
+    submitLetter();
   };
 
   return (
@@ -132,65 +42,88 @@ export default function Home() {
       <Header />
 
       <main>
-        <section className="relative -mt-21 min-h-[calc(100vh-1rem)] overflow-hidden">
-          <Image
-            src="/rilly_stage.png"
-            alt="Rilly JKT48 Stage Performance"
-            fill
-            priority
-            className="object-cover object-top"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(36,19,28,0.86),rgba(36,19,28,0.46)_48%,rgba(255,244,190,0.22)),linear-gradient(180deg,rgba(36,19,28,0.25),rgba(255,253,247,0.98)_92%)]" />
+        {/* Welcome Section */}
+        <section className="relative -mt-20 min-h-[calc(100vh-1rem)] overflow-hidden bg-[linear-gradient(135deg,#fffdf7_0%,#fff4ca_34%,#ffe3f1_66%,#fff8fb_100%)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(244,63,143,0.24),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,216,77,0.38),transparent_34%),radial-gradient(circle_at_58%_78%,rgba(190,24,93,0.12),transparent_34%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,rgba(255,253,247,0.95))]" />
+          <div className="absolute left-0 top-24 hidden h-px w-full bg-[linear-gradient(90deg,transparent,rgba(190,24,93,0.22),transparent)] md:block" />
 
-          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-1rem)] max-w-7xl items-center px-4 pb-20 pt-36 sm:px-6 lg:px-8">
+          <div className="relative z-10 mx-auto grid min-h-[calc(100vh-1rem)] max-w-7xl items-center gap-12 px-4 pb-20 pt-36 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65 }}
-              className="max-w-3xl text-white"
+              className="max-w-3xl text-[var(--ink)]"
             >
-              <span className="eyebrow border-white/20 bg-white/14 text-white backdrop-blur">
+              <span className="inline-flex rounded-full border border-pink-200/80 bg-white/68 px-4 py-2 text-xs font-black uppercase text-[var(--pink-deep)] shadow-sm backdrop-blur">
                 Official Fanbase
               </span>
-              <h1 className="mt-6 text-6xl font-black leading-[0.9] tracking-tight sm:text-7xl lg:text-8xl">
+              <h1 className="mt-6 text-6xl font-black leading-[0.9] tracking-tight text-gradient sm:text-7xl lg:text-8xl">
                 Aprillivels
               </h1>
-              <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-white/84 sm:text-lg">
-                Rumah dukungan untuk Rilly JKT48. Fresh, hangat, dan penuh
-                energi untuk merayakan tiap langkah Bong Aprilli Paskah di
-                panggung.
+              <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-[var(--muted)] sm:text-lg">
+                Rumah dukungan untuk Rilly JKT48. Tempat Aprillivels berkumpul,
+                berbagi semangat, dan merayakan perjalanan Bong Aprilli Paskah.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/profile"
-                  className="btn-gradient px-6 py-3 text-sm"
+                  className="btn-gradient rounded-full px-6 py-3 text-sm"
                 >
-                  Meet Rilly
-                </Link>
-                <Link
-                  href="/gallery"
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/28 bg-white/12 px-6 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/20"
-                >
-                  View Gallery
+                  Lihat Profil Rilly
                 </Link>
               </div>
-              <div className="mt-10 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="mt-10 grid max-w-xl grid-cols-2 gap-3">
                 {[
                   ["13th", "Generation"],
-                  ["Trainee", "JKT48"],
-                  ["Aprillivels", "Fanbase"],
+                  ["JKT48", "Trainee"],
                 ].map(([value, label]) => (
                   <div
                     key={label}
-                    className="rounded-lg border border-white/18 bg-white/12 p-4 backdrop-blur"
+                    className="rounded-lg border border-pink-200/70 bg-white/58 p-4 shadow-sm backdrop-blur"
                   >
                     <p className="text-lg font-black">{value}</p>
-                    <p className="mt-1 text-xs font-bold uppercase text-white/62">
+                    <p className="mt-1 text-xs font-bold uppercase text-[var(--soft)]">
                       {label}
                     </p>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 36, y: 18, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              transition={{
+                duration: 0.8,
+                delay: 0.18,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="relative mx-auto w-full max-w-[560px] lg:mx-0"
+            >
+              <div className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,rgba(244,63,143,0.22),transparent_64%)] blur-2xl" />
+              <div className="relative overflow-hidden rounded-lg border border-white/80 bg-white/52 p-4 shadow-[0_30px_90px_rgba(190,24,93,0.16)] backdrop-blur-xl">
+                <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(255,216,77,0.18),rgba(244,63,143,0.14))]" />
+                <div className="relative min-h-[430px] overflow-hidden rounded-lg bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,240,248,0.72))] sm:min-h-[560px]">
+                  <div className="absolute inset-x-8 bottom-8 h-20 rounded-full bg-[radial-gradient(ellipse,rgba(190,24,93,0.24),transparent_68%)] blur-xl" />
+                  <motion.div
+                    initial={{ opacity: 0, y: 44, filter: "blur(10px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      duration: 0.78,
+                      delay: 0.38,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    className="absolute inset-x-0 bottom-0 mx-auto flex justify-center px-8 pt-10"
+                  >
+                    <ImageFrame
+                      src="/main_page.jpeg"
+                      alt="Rilly JKT48"
+                      caption="Bong Aprilli"
+                      stampText="13th Generation "
+                    />
+                  </motion.div>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -350,26 +283,14 @@ export default function Home() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              updateLetters(
-                                letters.map((item) =>
-                                  item.id === letter.id
-                                    ? { ...item, likes: item.likes + 1 }
-                                    : item,
-                                ),
-                              )
-                            }
+                            onClick={() => likeLetter(letter.id)}
                             className="btn-muted px-2 py-1 text-xs"
                           >
                             Love {letter.likes}
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              updateLetters(
-                                letters.filter((item) => item.id !== letter.id),
-                              )
-                            }
+                            onClick={() => deleteLetter(letter.id)}
                             className="rounded-lg px-2 py-1 text-xs font-black text-[var(--soft)] hover:bg-red-50 hover:text-red-600"
                             title="Hapus Surat"
                           >

@@ -6,6 +6,36 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 
+function MenuIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <span className="relative h-4 w-5" aria-hidden="true">
+      <span
+        className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition duration-200 ${isOpen ? "top-2 rotate-45" : "top-0"}`}
+      />
+      <span
+        className={`absolute left-0 top-2 h-0.5 w-5 rounded-full bg-current transition duration-200 ${isOpen ? "opacity-0" : "opacity-100"}`}
+      />
+      <span
+        className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition duration-200 ${isOpen ? "top-2 -rotate-45" : "top-4"}`}
+      />
+    </span>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+      <path
+        d="M5 10h9m0 0-3.4-3.4M14 10l-3.4 3.4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function Header() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -17,29 +47,37 @@ export function Header() {
     { name: "Schedule", href: "/profile#theater" },
   ];
 
-  const activeFor = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href.split("#")[0]);
+  const activeFor = (href: string) => {
+    if (href.includes("#")) return false;
+    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  };
 
   return (
-    <header className="sticky top-3 z-50 mx-auto w-full max-w-7xl px-4 sm:px-6">
-      <nav className="glass-panel flex h-18 items-center justify-between px-3 sm:px-5">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
-          <Image
-            src="/aprillivels_logo.jpg"
-            alt="Aprillivels Logo"
-            width={44}
-            height={44}
-            className="h-11 w-11 rounded-lg object-cover ring-1 ring-pink-200"
-            priority
-          />
-          <div className="min-w-0">
-            <p className="truncate text-lg font-black leading-tight text-gradient">
+    <header className="sticky top-4 z-50 w-full px-3 sm:px-6">
+      <nav
+        aria-label="Primary navigation"
+        className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-pink-200/60 bg-white/88 px-2.5 py-1.5 shadow-[0_12px_36px_rgba(190,24,93,0.10)] backdrop-blur-xl"
+      >
+        <Link
+          href="/"
+          className="group flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2 transition duration-200 hover:bg-pink-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:pr-3"
+          aria-label="Aprillivels home"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white p-0.5 shadow-[0_6px_18px_rgba(190,24,93,0.14)] ring-1 ring-pink-100">
+            <Image
+              src="/aprillivels_logo.jpg"
+              alt=""
+              width={34}
+              height={34}
+              className="h-8 w-8 rounded-full object-cover"
+              priority
+            />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black leading-tight text-gradient sm:text-base">
               Aprillivels
-            </p>
-            <p className="truncate text-[10px] font-bold uppercase text-[var(--soft)]">
-              Bong Aprilli Fanbase
-            </p>
-          </div>
+            </span>
+          </span>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -49,14 +87,22 @@ export function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className="relative rounded-lg px-3 py-2 text-sm font-extrabold text-[var(--muted)] transition hover:text-[var(--pink-deep)]"
+                aria-current={isActive ? "page" : undefined}
+                className={`relative rounded-full px-3.5 py-2 text-sm font-bold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] ${
+                  isActive
+                    ? "text-[var(--pink-deep)]"
+                    : "text-[var(--muted)] hover:bg-pink-50/75 hover:text-[var(--pink-deep)]"
+                }`}
               >
                 {isActive && (
                   <motion.span
                     layoutId="activeHeaderNav"
-                    className="absolute inset-0 -z-10 rounded-lg bg-pink-50"
+                    className="absolute inset-0 -z-10 rounded-full bg-[linear-gradient(135deg,rgba(244,63,143,0.12),rgba(255,216,77,0.16))] ring-1 ring-pink-200/70"
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
+                )}
+                {isActive && (
+                  <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[var(--pink)]" />
                 )}
                 {item.name}
               </Link>
@@ -67,28 +113,19 @@ export function Header() {
         <div className="flex items-center gap-2">
           <Link
             href="/profile"
-            className="btn-gradient hidden px-4 py-2 text-xs sm:inline-flex"
+            className="hidden min-h-10 items-center rounded-full border border-pink-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,240,248,0.94))] px-4 py-2 text-xs font-black text-[var(--pink-deep)] shadow-[0_8px_24px_rgba(190,24,93,0.10)] transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:bg-pink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:inline-flex"
           >
-            Meet Rilly
+            <span>Regist Now!</span>
+            <ArrowIcon />
           </Link>
           <button
             type="button"
             onClick={() => setIsOpen((value) => !value)}
             aria-label="Toggle menu"
             aria-expanded={isOpen}
-            className="btn-muted grid h-11 w-11 place-items-center md:hidden"
+            className="grid h-10 w-10 place-items-center rounded-full border border-pink-200 bg-white/82 text-[var(--pink-deep)] shadow-sm transition duration-200 hover:bg-pink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] focus-visible:ring-offset-2 focus-visible:ring-offset-white md:hidden"
           >
-            <span className="relative h-4 w-5">
-              <span
-                className={`absolute left-0 h-0.5 w-5 bg-current transition ${isOpen ? "top-2 rotate-45" : "top-0"}`}
-              />
-              <span
-                className={`absolute left-0 top-2 h-0.5 w-5 bg-current transition ${isOpen ? "opacity-0" : "opacity-100"}`}
-              />
-              <span
-                className={`absolute left-0 h-0.5 w-5 bg-current transition ${isOpen ? "top-2 -rotate-45" : "top-4"}`}
-              />
-            </span>
+            <MenuIcon isOpen={isOpen} />
           </button>
         </div>
       </nav>
@@ -99,24 +136,34 @@ export function Header() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="glass-panel absolute left-4 right-4 mt-2 grid gap-2 p-3 md:hidden"
+            transition={{ duration: 0.18 }}
+            className="absolute left-3 right-3 mt-2 grid gap-1.5 rounded-3xl border border-pink-200/70 bg-white/94 p-2.5 shadow-[0_18px_44px_rgba(190,24,93,0.14)] backdrop-blur-xl sm:left-6 sm:right-6 md:hidden"
           >
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg px-4 py-3 text-sm font-black text-[var(--muted)] hover:bg-pink-50 hover:text-[var(--pink-deep)]"
-              >
-                {item.name}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const isActive = activeFor(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => setIsOpen(false)}
+                  className={`rounded-full px-4 py-3 text-sm font-bold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] ${
+                    isActive
+                      ? "bg-pink-50 text-[var(--pink-deep)] ring-1 ring-pink-200"
+                      : "text-[var(--muted)] hover:bg-pink-50 hover:text-[var(--pink-deep)]"
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              );
+            })}
             <Link
               href="/profile"
               onClick={() => setIsOpen(false)}
-              className="btn-gradient px-4 py-3 text-xs"
+              className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(95deg,var(--pink-deep),var(--pink),var(--yellow-deep))] px-4 py-3 text-xs font-black text-white shadow-[0_10px_28px_rgba(190,24,93,0.18)] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)]"
             >
-              Meet Rilly
+              <span>Regist Now!</span>
+              <ArrowIcon />
             </Link>
           </motion.div>
         )}
