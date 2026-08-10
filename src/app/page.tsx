@@ -45,10 +45,10 @@ export default function Home() {
         {/* Welcome Section */}
         <section className="relative -mt-20 min-h-[calc(100vh-1rem)] overflow-hidden bg-[linear-gradient(135deg,#fffdf7_0%,#fff4ca_34%,#ffe3f1_66%,#fff8fb_100%)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(244,63,143,0.24),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,216,77,0.38),transparent_34%),radial-gradient(circle_at_58%_78%,rgba(190,24,93,0.12),transparent_34%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,rgba(255,253,247,0.95))]" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(255,253,247,0.95))]" />
           <div className="absolute left-0 top-24 hidden h-px w-full bg-[linear-gradient(90deg,transparent,rgba(190,24,93,0.22),transparent)] md:block" />
 
-          <div className="relative z-10 mx-auto grid min-h-[calc(100vh-1rem)] max-w-7xl items-center gap-12 px-4 pb-20 pt-36 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
+          <div className="relative z-10 mx-auto grid min-h-[calc(100vh-1rem)] max-w-7xl items-center gap-12 px-4 pb-8 pt-36 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -129,7 +129,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-7xl px-4 pb-20 pt-0 sm:px-6 lg:px-8">
           <div className="section-rule mb-12" />
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <motion.div
