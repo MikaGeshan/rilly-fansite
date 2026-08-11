@@ -40,14 +40,9 @@ export default function Home() {
   return (
     <div className="site-shell">
       <Header />
-
-      <main>
+      <main className="relative overflow-hidden">
         {/* Welcome Section */}
-        <section className="relative -mt-20 min-h-[calc(100vh-1rem)] overflow-hidden bg-[linear-gradient(135deg,#fffdf7_0%,#fff4ca_34%,#ffe3f1_66%,#fff8fb_100%)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(244,63,143,0.24),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,216,77,0.38),transparent_34%),radial-gradient(circle_at_58%_78%,rgba(190,24,93,0.12),transparent_34%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(255,253,247,0.95))]" />
-          <div className="absolute left-0 top-24 hidden h-px w-full bg-[linear-gradient(90deg,transparent,rgba(190,24,93,0.22),transparent)] md:block" />
-
+        <section className="relative -mt-20 min-h-[calc(100vh-1rem)] overflow-hidden">
           <div className="relative z-10 mx-auto grid min-h-[calc(100vh-1rem)] max-w-7xl items-center gap-12 px-4 pb-8 pt-36 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -55,7 +50,7 @@ export default function Home() {
               transition={{ duration: 0.65 }}
               className="max-w-3xl text-[var(--ink)]"
             >
-              <span className="inline-flex rounded-full border border-pink-200/80 bg-white/68 px-4 py-2 text-xs font-black uppercase text-[var(--pink-deep)] shadow-sm backdrop-blur">
+              <span className="inline-flex rounded-full bg-white/68 px-4 py-2 text-xs font-black uppercase text-[var(--pink-deep)] shadow-sm backdrop-blur">
                 Official Fanbase
               </span>
               <h1 className="mt-6 text-6xl font-black leading-[0.9] tracking-tight text-gradient sm:text-7xl lg:text-8xl">
@@ -80,7 +75,7 @@ export default function Home() {
                 ].map(([value, label]) => (
                   <div
                     key={label}
-                    className="rounded-lg border border-pink-200/70 bg-white/58 p-4 shadow-sm backdrop-blur"
+                    className="rounded-lg bg-white/58 p-4 shadow-sm backdrop-blur"
                   >
                     <p className="text-lg font-black">{value}</p>
                     <p className="mt-1 text-xs font-bold uppercase text-[var(--soft)]">
@@ -102,7 +97,7 @@ export default function Home() {
               className="relative mx-auto w-full max-w-[560px] lg:mx-0"
             >
               <div className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,rgba(244,63,143,0.22),transparent_64%)] blur-2xl" />
-              <div className="relative overflow-hidden rounded-lg border border-white/80 bg-white/52 p-4 shadow-[0_30px_90px_rgba(190,24,93,0.16)] backdrop-blur-xl">
+              <div className="relative overflow-hidden rounded-lg bg-white/52 p-4 shadow-[0_30px_90px_rgba(190,24,93,0.16)] backdrop-blur-xl">
                 <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(255,216,77,0.18),rgba(244,63,143,0.14))]" />
                 <div className="relative min-h-[430px] overflow-hidden rounded-lg bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,240,248,0.72))] sm:min-h-[560px]">
                   <div className="absolute inset-x-8 bottom-8 h-20 rounded-full bg-[radial-gradient(ellipse,rgba(190,24,93,0.24),transparent_68%)] blur-xl" />
@@ -129,9 +124,9 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-20 pt-0 sm:px-6 lg:px-8">
-          <div className="section-rule mb-12" />
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="relative overflow-hidden px-4 pb-20 pt-0 sm:px-6 lg:px-8">
+          <div className="pointer-events-none absolute inset-x-0 -top-32 h-64 bg-[radial-gradient(ellipse_at_center,rgba(255,244,202,0.42),transparent_70%)]" />
+          <div className="relative mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -276,7 +271,7 @@ export default function Home() {
                           &ldquo;{letter.message}&rdquo;
                         </p>
                       </div>
-                      <div className="mt-5 flex items-center justify-between border-t border-dashed border-pink-200 pt-4">
+                      <div className="mt-5 flex items-center justify-between pt-4">
                         <p className="min-w-0 truncate text-sm font-black text-gradient">
                           {letter.sender}
                         </p>

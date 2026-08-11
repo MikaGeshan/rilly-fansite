@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -46,6 +46,7 @@ export function Header() {
     { name: "Gallery", href: "/gallery" },
     { name: "Schedule", href: "/profile#theater" },
   ];
+  const registerHref = "https://forms.gle/XFUjzxHQDCePHnT6A";
 
   const activeFor = (href: string) => {
     if (href.includes("#")) return false;
@@ -111,13 +112,15 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/profile"
+          <a
+            href={registerHref}
+            target="_blank"
+            rel="noopener noreferrer"
             className="hidden min-h-10 items-center rounded-full border border-pink-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,240,248,0.94))] px-4 py-2 text-xs font-black text-[var(--pink-deep)] shadow-[0_8px_24px_rgba(190,24,93,0.10)] transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:bg-pink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)] focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:inline-flex"
           >
             <span>Regist Now!</span>
             <ArrowIcon />
-          </Link>
+          </a>
           <button
             type="button"
             onClick={() => setIsOpen((value) => !value)}
@@ -157,14 +160,16 @@ export function Header() {
                 </Link>
               );
             })}
-            <Link
-              href="/profile"
+            <a
+              href={registerHref}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setIsOpen(false)}
               className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(95deg,var(--pink-deep),var(--pink),var(--yellow-deep))] px-4 py-3 text-xs font-black text-white shadow-[0_10px_28px_rgba(190,24,93,0.18)] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pink)]"
             >
               <span>Regist Now!</span>
               <ArrowIcon />
-            </Link>
+            </a>
           </motion.div>
         )}
       </AnimatePresence>
