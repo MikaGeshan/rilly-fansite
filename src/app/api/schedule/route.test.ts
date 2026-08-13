@@ -1,151 +1,165 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockGet } = vi.hoisted(() => ({ mockGet: vi.fn() }));
+const { mockExecFile } = vi.hoisted(() => ({
+  mockExecFile: vi.fn(),
+}));
 
-vi.mock("axios", () => {
-  class AxiosError extends Error {}
-  return {
-    default: { create: vi.fn(() => ({ get: mockGet })) },
-    AxiosError,
-  };
-});
+vi.mock("node:child_process", () => ({
+  default: { execFile: mockExecFile },
+  execFile: mockExecFile,
+}));
 
-import { AxiosError } from "axios";
 import { GET } from "@/app/api/schedule/route";
 
 const MEMBER_ID = 39;
 
-// Mimics the axios response shape: `.data` holds the ShowResponse wrapper,
-// whose own `.data` holds the ShowData.
-function makeShow(code: string, memberIds: number[]) {
+function makeShow(code: string, memberIds = [MEMBER_ID]) {
   return {
-    data: {
-      status: true,
-      message: "ok",
-      data: {
-        code,
-        title: `Show ${code}`,
-        date: "2024-03-01",
-        start_time: "18:00",
-        end_time: "20:00",
-        jkt48_member: memberIds.map((id) => ({
-          name: `member-${id}`,
-          type: "regular",
-          member_id: id,
-        })),
-        jkt48_member_type: "regular",
-        default_price: 100,
-        total_quota: 200,
-      },
-    },
+    code,
+    title: `Show ${code}`,
+    date: "2026-08-20",
+    start_time: "18:00",
+    end_time: "20:00",
+    jkt48_member: memberIds.map((id) => ({
+      name: `member-${id}`,
+      type: "regular",
+      member_id: id,
+    })),
+    jkt48_member_type: "regular",
+    default_price: 100,
+    total_quota: 200,
   };
 }
 
-function schedulesResponse(codes: string[]) {
-  return {
-    data: {
-      status: true,
-      message: "ok",
-      data: codes.map((reference_code) => ({ reference_code })),
-    },
-  };
+function pythonResponse(shows = [makeShow("a")]) {
+  return JSON.stringify({
+    source: "jkt48-official-python",
+    month: "8",
+    year: "2026",
+    member_id: MEMBER_ID,
+    count: shows.length,
+    shows,
+  });
 }
 
 function request(query = "") {
   return new Request(`http://localhost/api/schedule${query}`);
 }
 
+function mockPythonSuccess(stdout = pythonResponse(), stderr = "") {
+  mockExecFile.mockImplementation((_bin, _args, _options, callback) => {
+    callback(null, stdout, stderr);
+  });
+}
+
+function mockPythonFailure(stderr: string) {
+  mockExecFile.mockImplementation((_bin, _args, _options, callback) => {
+    const error = new Error("python failed") as Error & { stderr: string };
+    error.stderr = stderr;
+    callback(error, "", stderr);
+  });
+}
+
 describe("GET /api/schedule", () => {
   beforeEach(() => {
-    mockGet.mockReset();
+    mockExecFile.mockReset();
+    vi.unstubAllEnvs();
   });
 
-  it("returns only shows that include the target member", async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url.startsWith("/schedules")) {
-        return Promise.resolve(schedulesResponse(["a", "b"]));
-      }
-      if (url.includes("/theater-shows/a")) {
-        return Promise.resolve(makeShow("a", [MEMBER_ID, 1]));
-      }
-      return Promise.resolve(makeShow("b", [2, 3]));
-    });
+  it("returns shows from the official Python fetcher", async () => {
+    mockPythonSuccess(pythonResponse([makeShow("a"), makeShow("b")]));
 
-    const res = await GET(request("?month=3&year=2024"));
+    const res = await GET(request("?month=8&year=2026"));
+    const body = await res.json();
+
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveLength(1);
+    expect(body).toHaveLength(2);
     expect(body[0].code).toBe("a");
   });
 
-  it("drops shows whose fetch failed (null results)", async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url.startsWith("/schedules")) {
-        return Promise.resolve(schedulesResponse(["a", "b"]));
-      }
-      if (url.includes("/theater-shows/a")) {
-        return Promise.resolve(makeShow("a", [MEMBER_ID]));
-      }
-      return Promise.reject(new Error("boom"));
-    });
-
-    const res = await GET(request());
-    const body = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].code).toBe("a");
-  });
-
-  it("returns an empty array when no show includes the member", async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url.startsWith("/schedules")) {
-        return Promise.resolve(schedulesResponse(["a"]));
-      }
-      return Promise.resolve(makeShow("a", [999]));
-    });
-
-    const res = await GET(request());
-    const body = await res.json();
-    expect(body).toEqual([]);
-  });
-
-  it("passes month and year query params through to the schedules request", async () => {
-    mockGet.mockResolvedValue(schedulesResponse([]));
+  it("passes month and year query params to the Python script", async () => {
+    mockPythonSuccess(pythonResponse([]));
 
     await GET(request("?month=7&year=2030"));
 
-    expect(mockGet).toHaveBeenCalledWith(
-      expect.stringContaining("month=7&year=2030"),
+    expect(mockExecFile).toHaveBeenCalledWith(
+      "python3",
+      [
+        expect.stringContaining("scripts/fetch_jkt48_schedule.py"),
+        "--month",
+        "7",
+        "--year",
+        "2030",
+      ],
+      expect.objectContaining({
+        timeout: 30000,
+        maxBuffer: 1024 * 1024,
+      }),
+      expect.any(Function),
     );
   });
 
   it("defaults to the current month and year when params are absent", async () => {
-    mockGet.mockResolvedValue(schedulesResponse([]));
+    mockPythonSuccess(pythonResponse([]));
     const now = new Date();
 
     await GET(request());
 
-    expect(mockGet).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `month=${now.getMonth() + 1}&year=${now.getFullYear()}`,
-      ),
+    expect(mockExecFile).toHaveBeenCalledWith(
+      "python3",
+      expect.arrayContaining([
+        "--month",
+        String(now.getMonth() + 1),
+        "--year",
+        String(now.getFullYear()),
+      ]),
+      expect.any(Object),
+      expect.any(Function),
     );
   });
 
-  it("returns 500 with the axios error message when the request fails", async () => {
-    mockGet.mockRejectedValue(new AxiosError("network down"));
+  it("adds the vendored Python packages directory to PYTHONPATH", async () => {
+    vi.stubEnv("PYTHONPATH", "existing-path");
+    mockPythonSuccess(pythonResponse([]));
 
-    const res = await GET(request());
-    expect(res.status).toBe(500);
-    const body = await res.json();
-    expect(body.error).toBe("network down");
+    await GET(request());
+
+    expect(mockExecFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({
+        env: expect.objectContaining({
+          PYTHONPATH: expect.stringMatching(/\.python_packages.*existing-path/),
+        }),
+      }),
+      expect.any(Function),
+    );
   });
 
-  it("returns 500 with a fallback message for non-axios errors", async () => {
-    mockGet.mockRejectedValue(new Error("unexpected"));
+  it("returns 502 with the Python stderr JSON message when the request fails", async () => {
+    mockPythonFailure(
+      JSON.stringify({
+        source: "jkt48-official-python",
+        ok: false,
+        error: "Cloudflare challenge",
+        status: 403,
+      }),
+    );
 
     const res = await GET(request());
-    expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("=== failed to fetch schedules");
+
+    expect(res.status).toBe(502);
+    expect(body.error).toBe("Cloudflare challenge");
+  });
+
+  it("returns 502 when the Python response is invalid", async () => {
+    mockPythonSuccess(JSON.stringify({ shows: null }));
+
+    const res = await GET(request());
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.error).toBe("Python schedule script returned an invalid response");
   });
 });

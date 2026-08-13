@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "python3 -m pip install --upgrade -r requirements.txt --target .python_packages && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

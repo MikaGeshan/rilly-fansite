@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
-import path from "node:path";
-import { promisify } from "node:util";
+import { delimiter, join } from "node:path";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -32,13 +31,20 @@ interface PythonScheduleResponse {
   shows: ShowData[];
 }
 
-const execFileAsync = promisify(execFile);
 const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
-const SCRIPT_PATH = path.join(
-  process.cwd(),
-  "scripts",
-  "fetch_jkt48_schedule.py",
-);
+const PYTHON_PACKAGES_PATH = ".python_packages";
+const SCRIPT_PATH = join("scripts", "fetch_jkt48_schedule.py");
+
+function withPythonPath() {
+  const existingPythonPath = process.env.PYTHONPATH;
+
+  return {
+    ...process.env,
+    PYTHONPATH: existingPythonPath
+      ? `${PYTHON_PACKAGES_PATH}${delimiter}${existingPythonPath}`
+      : PYTHON_PACKAGES_PATH,
+  };
+}
 
 function logScheduleResult(result: PythonScheduleResponse) {
   console.info("[schedule-api] result", {
@@ -57,14 +63,28 @@ function logScheduleResult(result: PythonScheduleResponse) {
 }
 
 async function fetchOfficialSchedule(month: string, year: string) {
-  const { stdout, stderr } = await execFileAsync(
-    PYTHON_BIN,
-    [SCRIPT_PATH, "--month", month, "--year", year],
-    {
-      timeout: 30000,
-      maxBuffer: 1024 * 1024,
-    },
-  );
+  const { stdout, stderr } = await new Promise<{
+    stdout: string;
+    stderr: string;
+  }>((resolve, reject) => {
+    execFile(
+      PYTHON_BIN,
+      [SCRIPT_PATH, "--month", month, "--year", year],
+      {
+        env: withPythonPath(),
+        timeout: 30000,
+        maxBuffer: 1024 * 1024,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(Object.assign(error, { stderr }));
+          return;
+        }
+
+        resolve({ stdout, stderr });
+      },
+    );
+  });
 
   if (stderr.trim()) {
     console.warn("[schedule-api] python stderr", stderr.trim());
@@ -102,19 +122,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Failed to fetch schedules from JKT48 official API";
-}
-
-function parseIntInRange(
-  value: string | null,
-  fallback: number,
-  min: number,
-  max: number,
-): number | null {
-  if (value === null) return fallback;
-  if (!/^\d+$/.test(value)) return null;
-  const parsed = Number(value);
-  if (parsed < min || parsed > max) return null;
-  return parsed;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
