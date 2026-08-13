@@ -298,19 +298,13 @@ export default function ProfilePage() {
                     className="glass-panel group flex items-center gap-3 p-3 transition duration-200 hover:shadow-[0_18px_48px_rgba(190,24,93,0.16)]"
                   >
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white/76 shadow-sm ring-1 ring-pink-100">
-                      {social.iconSrc ? (
-                        <Image
-                          src={social.iconSrc}
-                          alt=""
-                          width={24}
-                          height={24}
-                          className="object-contain"
-                        />
-                      ) : (
-                        <span className="text-xs font-black text-gradient">
-                          {social.initials}
-                        </span>
-                      )}
+                      <Image
+                        src={social.iconSrc}
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="object-contain"
+                      />
                     </span>
                     <span className="min-w-0">
                       <span className="block text-sm font-black text-[var(--ink)]">
