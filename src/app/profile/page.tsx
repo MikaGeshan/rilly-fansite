@@ -59,7 +59,7 @@ const socialLinks = [
     name: "SHOWROOM",
     handle: "JKT48_Rilly",
     href: "https://www.showroom-live.com/r/JKT48_Rilly",
-    iconSrc: "/showroom.png",
+    iconSrc: "/showroom-live.png",
   },
   {
     name: "IDN",
@@ -69,39 +69,15 @@ const socialLinks = [
   },
 ];
 
-const hashtags: [tag: string, title: string, desc: string][] = [
-  [
-    "#MornRill",
-    "Sapaan Pagi",
-    "Awali pagi dengan pesan hangat dan energi positif.",
-  ],
-  [
-    "#NightRill",
-    "Sapaan Malam",
-    "Tutup hari dengan dukungan singkat untuk Rilly.",
-  ],
-  ["#fRillday", "Pap Jumat", "Momen mingguan untuk foto, fancam, dan cerita."],
-  [
-    "#NgabubuRill",
-    "Sebelum Berbuka",
-    "Tag khusus bulan Ramadan menjelang waktu berbuka.",
-  ],
-  [
-    "#InRilLive",
-    "Live Streaming",
-    "Untuk berbagi konten live streaming Rilly.",
-  ],
-  ["#RillCall", "Video Call", "Cerita dan momen dari sesi video call."],
-  [
-    "#CoveRill",
-    "Cover Rilly",
-    "Ramaikan konten cover lagu yang dibawakan Rilly.",
-  ],
-  [
-    "#HaRillybur",
-    "Liburan",
-    "Momen santai saat Rilly sedang libur atau jeda aktivitas.",
-  ],
+const hashtags: [tag: string, title: string][] = [
+  ["#MornRill", "Setiap Pagi"],
+  ["#NightRill", "Sebelum Tidur"],
+  ["#fRillday", "Setiap Jumat"],
+  ["#NgabubuRill", "Sebelum Berbuka Puasa"],
+  ["#InRilLive", "Live Streaming"],
+  ["#RillCall", "Video Call"],
+  ["#CoveRill", "Singing Covers"],
+  ["#HaRillybur", "Liburan"],
 ];
 
 function SparkIcon({ className = "" }: { className?: string }) {
@@ -281,7 +257,7 @@ export default function ProfilePage() {
                 <p className="text-xs font-black uppercase text-[var(--pink-deep)]">
                   Official Socials
                 </p>
-                <p className="btn-muted px-3 py-2 text-xs">5 Platform</p>
+                <p className="btn-muted px-3 py-2 text-xs">5 Platforms</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {socialLinks.map((social, index) => (
@@ -330,7 +306,9 @@ export default function ProfilePage() {
                 Jadwal Theater
               </h2>
             </div>
-            <p className="btn-muted px-3 py-2 text-xs">Bulan Ini</p>
+            <p className="btn-muted px-3 py-2 text-xs">
+              {loadingShows ? "Memuat Show" : `${shows.length} Show Bulan Ini`}
+            </p>
           </div>
 
           {loadingShows ? (
@@ -382,7 +360,7 @@ export default function ProfilePage() {
             <p className="btn-muted px-3 py-2 text-xs">8 Tags</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {hashtags.map(([tag, title, desc], index) => (
+            {hashtags.map(([tag, title], index) => (
               <article key={tag} className="glass-panel p-5">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-xs font-black uppercase text-[var(--soft)]">
@@ -395,9 +373,6 @@ export default function ProfilePage() {
                 <h3 className="mt-4 text-2xl font-black text-gradient">
                   {tag}
                 </h3>
-                <p className="mt-3 min-h-18 text-sm font-semibold leading-7 text-[var(--muted)]">
-                  {desc}
-                </p>
                 <button
                   type="button"
                   onClick={() => copyHashtag(tag)}

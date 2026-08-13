@@ -4,13 +4,13 @@ import Image from "next/image";
 export function Footer() {
   const socials = [
     {
-      href: "https://instagram.com/rilly.jkt48_",
+      href: "https://www.instagram.com/AprillivelsID/",
       label: "Instagram",
       src: "/instagram.png",
     },
-    { href: "https://x.com/Rilly_JKT48", label: "X", src: "/x.png" },
+    { href: "https://x.com/AprilliVelsID", label: "X", src: "/x.png" },
     {
-      href: "https://tiktok.com/@jkt48.rilly",
+      href: "https://www.tiktok.com/@aprillivelsid",
       label: "TikTok",
       src: "/tik-tok.png",
     },
