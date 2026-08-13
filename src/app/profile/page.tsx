@@ -36,26 +36,40 @@ const profileMetrics = [
   ["Height", profile.height],
 ];
 
-const funFacts = [
+const socialLinks = [
   {
-    title: "Vokal Otodidak",
-    desc: "Rilly dikenal punya vokal natural yang kuat dan terus diasah melalui proses trainee.",
+    name: "Instagram",
+    handle: "@rilly.jkt48_",
+    href: "https://www.instagram.com/rilly.jkt48_/?hl=en",
+    iconSrc: "/instagram.png",
   },
   {
-    title: "Energi Panggung",
-    desc: "Pembawaannya ceria dan percaya diri, cocok untuk menciptakan momen teater yang hidup.",
+    name: "X",
+    handle: "@Rilly_JKT48",
+    href: "https://x.com/Rilly_JKT48",
+    iconSrc: "/x.png",
   },
   {
-    title: "Rapsodi Moment",
-    desc: "Penampilan Rapsodi di JKT48 School menjadi salah satu momen yang banyak dibicarakan fans.",
+    name: "TikTok",
+    handle: "@jkt48.rilly",
+    href: "https://www.tiktok.com/@jkt48.rilly",
+    iconSrc: "/tik-tok.png",
   },
   {
-    title: "Generasi 13",
-    desc: "Bagian dari wajah baru JKT48 yang sedang bertumbuh bersama dukungan komunitas.",
+    name: "SHOWROOM",
+    handle: "JKT48_Rilly",
+    href: "https://www.showroom-live.com/r/JKT48_Rilly",
+    iconSrc: "/showroom.png",
+  },
+  {
+    name: "IDN",
+    handle: "jkt48_rilly",
+    href: "https://www.idn.app/jkt48_rilly",
+    iconSrc: "/IDN.png",
   },
 ];
 
-const hashtags = [
+const hashtags: [tag: string, title: string, desc: string][] = [
   [
     "#MornRill",
     "Sapaan Pagi",
@@ -248,31 +262,6 @@ export default function ProfilePage() {
             <h2 className="mt-5 text-5xl font-black leading-tight tracking-tight text-gradient sm:text-6xl">
               Bong Aprilli Paskah
             </h2>
-            <p className="mt-5 text-base font-semibold leading-8 text-[var(--muted)]">
-              Kenali perjalanan, karakter, dan detail singkat tentang Rilly
-              JKT48 dalam tampilan yang lebih segar dan mudah dipindai.
-            </p>
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-2">
-              <div className="glass-panel p-5">
-                <p className="text-xs font-black uppercase text-[var(--pink-deep)]">
-                  Profile Focus
-                </p>
-                <p className="mt-3 text-sm font-semibold leading-7 text-[var(--muted)]">
-                  Portrait dibuat lebih prominent dengan framing ala collectible
-                  card, tetap memakai warna pink, putih, dan kuning.
-                </p>
-              </div>
-              <div className="glass-panel p-5">
-                <p className="text-xs font-black uppercase text-[var(--pink-deep)]">
-                  Fan Mood
-                </p>
-                <p className="mt-3 text-sm font-semibold leading-7 text-[var(--muted)]">
-                  Visualnya lebih eye-catching tanpa warna tacky: soft glow,
-                  layered white glass, dan aksen kuning hangat.
-                </p>
-              </div>
-            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               {quickInfo.map(([label, value]) => (
@@ -286,64 +275,56 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-          </motion.div>
-        </section>
 
-        <section className="mt-18 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-          <div>
-            <span className="eyebrow">Biografi</span>
-            <h2 className="mt-4 text-4xl font-black text-gradient">
-              Perjalanan Rilly
-            </h2>
-          </div>
-          <div className="glass-panel p-6 sm:p-8">
-            <div className="space-y-5 text-sm font-semibold leading-8 text-[var(--muted)] sm:text-base">
-              <p>
-                Lahir di Jakarta pada 1 April 2010, Bong Aprilli Paskah resmi
-                dikenal sebagai Rilly, anggota Generasi 13 Trainee JKT48. Ia
-                mencuri perhatian lewat karakter panggung yang cerah dan potensi
-                vokal yang menonjol.
-              </p>
-              <p>
-                Sebagai trainee, Rilly terus membangun kemampuan lewat latihan,
-                penampilan teater, dan interaksi dengan fans. Aprillivels hadir
-                sebagai ruang dukungan yang positif untuk menemani proses itu.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-16">
-          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <span className="eyebrow">Highlights</span>
-              <h2 className="mt-4 text-4xl font-black text-gradient">
-                Fakta Menarik
-              </h2>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {funFacts.map((fact, index) => (
-              <motion.article
-                key={fact.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.04 }}
-                className="glass-panel p-5"
-              >
+            <div className="mt-7">
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase text-[var(--pink-deep)]">
-                  0{index + 1}
+                  Official Socials
                 </p>
-                <h3 className="mt-4 text-xl font-black text-[var(--ink)]">
-                  {fact.title}
-                </h3>
-                <p className="mt-3 text-sm font-semibold leading-7 text-[var(--muted)]">
-                  {fact.desc}
-                </p>
-              </motion.article>
-            ))}
-          </div>
+                <p className="btn-muted px-3 py-2 text-xs">5 Platform</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {socialLinks.map((social, index) => (
+                  <motion.a
+                    key={social.name}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open Rilly ${social.name}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.16 + index * 0.04 }}
+                    whileHover={{ y: -3 }}
+                    className="glass-panel group flex items-center gap-3 p-3 transition duration-200 hover:shadow-[0_18px_48px_rgba(190,24,93,0.16)]"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white/76 shadow-sm ring-1 ring-pink-100">
+                      {social.iconSrc ? (
+                        <Image
+                          src={social.iconSrc}
+                          alt=""
+                          width={24}
+                          height={24}
+                          className="object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs font-black text-gradient">
+                          {social.initials}
+                        </span>
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-[var(--ink)]">
+                        {social.name}
+                      </span>
+                      <span className="block truncate text-xs font-semibold text-[var(--muted)]">
+                        {social.handle}
+                      </span>
+                    </span>
+                  </motion.a>
+                ))}
+              </div>
+            </div>
+          </motion.div>
         </section>
 
         <section id="theater" className="mt-18 scroll-mt-24">
