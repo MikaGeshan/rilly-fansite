@@ -5,6 +5,7 @@
     "": {
       "name": "fansite-rilly",
       "dependencies": {
+        "@ghostfetch/engine-linux-x64": "^0.1.2",
         "@supabase/supabase-js": "^2.110.2",
         "axios": "^1.18.1",
         "cross-fetch": "^4.1.0",
