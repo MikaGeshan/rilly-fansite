@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ghostFetch } from "ghostfetch";
+import { GhostClient } from "ghostfetch";
 
 const BASE_URL = "https://jkt48.com/api/v1";
 const MEMBER_ID = 39;
@@ -76,12 +76,10 @@ function normalizeMonthYear(month: string | null, year: string | null) {
   };
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function fetchJson<T>(client: GhostClient, path: string): Promise<T> {
   const url = `${BASE_URL}${path}`;
 
-  const response = await ghostFetch(url, {
-    browser: "Chrome_131",
-  });
+  const response = await client.fetch(url);
 
   if (response.status !== 200) {
     if (response.status === 403) {
@@ -120,61 +118,74 @@ async function fetchOfficialSchedule(
   month: string,
   year: string,
 ): Promise<ScheduleResult> {
-  const schedulesResponse = await fetchJson<ApiEnvelope<ShowData[]>>(
-    `/schedules?lang=id&month=${month}&year=${year}&type=show`,
-  );
-  const schedules = Array.isArray(schedulesResponse.data)
-    ? schedulesResponse.data
-    : [];
-
-  const listMatches = schedules.filter((show) => {
-    return Array.isArray(show.jkt48_member) && isTargetMemberShow(show);
+  const client = new GhostClient({
+    browser: "Chrome_131",
+    timeout: 15_000,
   });
 
-  if (listMatches.length > 0) {
+  try {
+    const schedulesResponse = await fetchJson<ApiEnvelope<ShowData[]>>(
+      client,
+      `/schedules?lang=id&month=${month}&year=${year}&type=show`,
+    );
+    const schedules = Array.isArray(schedulesResponse.data)
+      ? schedulesResponse.data
+      : [];
+
+    const listMatches = schedules.filter((show) => {
+      return Array.isArray(show.jkt48_member) && isTargetMemberShow(show);
+    });
+
+    if (listMatches.length > 0) {
+      return {
+        source: "jkt48-official-ghostfetch",
+        month,
+        year,
+        member_id: MEMBER_ID,
+        count: listMatches.length,
+        shows: listMatches,
+      };
+    }
+
+    const codes = schedules
+      .map((show) => show.reference_code)
+      .filter((code): code is string => typeof code === "string");
+
+    const showsResponses = await mapWithConcurrency(
+      codes,
+      DETAIL_CONCURRENCY,
+      async (code) => {
+        try {
+          const showDetail = await fetchJson<ApiEnvelope<ShowData>>(
+            client,
+            `/theater-shows/${code}?lang=id`,
+          );
+          return showDetail.data ?? null;
+        } catch (error) {
+          console.warn(`[schedule-api] show fetch failed code=${code}`, error);
+          return null;
+        }
+      },
+    );
+
+    const filteredShows = showsResponses.filter((show): show is ShowData => {
+      if (!show || !Array.isArray(show.jkt48_member)) return false;
+      return isTargetMemberShow(show);
+    });
+
     return {
       source: "jkt48-official-ghostfetch",
       month,
       year,
       member_id: MEMBER_ID,
-      count: listMatches.length,
-      shows: listMatches,
+      count: filteredShows.length,
+      shows: filteredShows,
     };
+  } finally {
+    await client.destroy().catch((error: unknown) => {
+      console.warn("[schedule-api] ghostfetch client cleanup failed", error);
+    });
   }
-
-  const codes = schedules
-    .map((show) => show.reference_code)
-    .filter((code): code is string => typeof code === "string");
-
-  const showsResponses = await mapWithConcurrency(
-    codes,
-    DETAIL_CONCURRENCY,
-    async (code) => {
-      try {
-        const showDetail = await fetchJson<ApiEnvelope<ShowData>>(
-          `/theater-shows/${code}?lang=id`,
-        );
-        return showDetail.data ?? null;
-      } catch (error) {
-        console.warn(`[schedule-api] show fetch failed code=${code}`, error);
-        return null;
-      }
-    },
-  );
-
-  const filteredShows = showsResponses.filter((show): show is ShowData => {
-    if (!show || !Array.isArray(show.jkt48_member)) return false;
-    return isTargetMemberShow(show);
-  });
-
-  return {
-    source: "jkt48-official-ghostfetch",
-    month,
-    year,
-    member_id: MEMBER_ID,
-    count: filteredShows.length,
-    shows: filteredShows,
-  };
 }
 
 async function getSchedule(month: string, year: string) {

@@ -1,11 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockGhostFetch } = vi.hoisted(() => ({
-  mockGhostFetch: vi.fn(),
+const { MockGhostClient, mockClientFetch, mockClientDestroy } = vi.hoisted(
+  () => ({
+    MockGhostClient: vi.fn(),
+    mockClientFetch: vi.fn(),
+    mockClientDestroy: vi.fn(),
+  }),
+);
+
+MockGhostClient.mockImplementation(() => ({
+  fetch: mockClientFetch,
+  destroy: mockClientDestroy,
 }));
 
 vi.mock("ghostfetch", () => ({
-  ghostFetch: mockGhostFetch,
+  GhostClient: MockGhostClient,
 }));
 
 import { clearScheduleRouteCache, GET } from "@/app/api/schedule/route";
@@ -48,12 +57,15 @@ function request(query = "") {
 
 describe("GET /api/schedule", () => {
   beforeEach(() => {
-    mockGhostFetch.mockReset();
+    MockGhostClient.mockClear();
+    mockClientFetch.mockReset();
+    mockClientDestroy.mockReset();
+    mockClientDestroy.mockResolvedValue(undefined);
     clearScheduleRouteCache();
   });
 
   it("returns matching shows directly from the schedule list", async () => {
-    mockGhostFetch.mockResolvedValueOnce(
+    mockClientFetch.mockResolvedValueOnce(
       jsonResponse({
         data: [makeShow("a"), makeShow("b", [999])],
       }),
@@ -66,15 +78,19 @@ describe("GET /api/schedule", () => {
     expect(res.headers.get("X-Schedule-Cache")).toBe("MISS");
     expect(body).toHaveLength(1);
     expect(body[0].code).toBe("a");
-    expect(mockGhostFetch).toHaveBeenCalledTimes(1);
-    expect(mockGhostFetch).toHaveBeenCalledWith(
+    expect(MockGhostClient).toHaveBeenCalledWith({
+      browser: "Chrome_131",
+      timeout: 15_000,
+    });
+    expect(mockClientFetch).toHaveBeenCalledTimes(1);
+    expect(mockClientFetch).toHaveBeenCalledWith(
       "https://jkt48.com/api/v1/schedules?lang=id&month=8&year=2026&type=show",
-      { browser: "Chrome_131" },
     );
+    expect(mockClientDestroy).toHaveBeenCalledTimes(1);
   });
 
   it("fetches show details when the list has no member payload", async () => {
-    mockGhostFetch
+    mockClientFetch
       .mockResolvedValueOnce(
         jsonResponse({
           data: [
@@ -92,35 +108,34 @@ describe("GET /api/schedule", () => {
     expect(res.status).toBe(200);
     expect(body).toHaveLength(1);
     expect(body[0].code).toBe("b");
-    expect(mockGhostFetch).toHaveBeenCalledTimes(3);
-    expect(mockGhostFetch).toHaveBeenNthCalledWith(
+    expect(MockGhostClient).toHaveBeenCalledTimes(1);
+    expect(mockClientFetch).toHaveBeenCalledTimes(3);
+    expect(mockClientFetch).toHaveBeenNthCalledWith(
       2,
       "https://jkt48.com/api/v1/theater-shows/ref-a?lang=id",
-      { browser: "Chrome_131" },
     );
-    expect(mockGhostFetch).toHaveBeenNthCalledWith(
+    expect(mockClientFetch).toHaveBeenNthCalledWith(
       3,
       "https://jkt48.com/api/v1/theater-shows/ref-b?lang=id",
-      { browser: "Chrome_131" },
     );
+    expect(mockClientDestroy).toHaveBeenCalledTimes(1);
   });
 
   it("defaults to the current month and year when params are absent", async () => {
-    mockGhostFetch.mockResolvedValueOnce(jsonResponse({ data: [] }));
+    mockClientFetch.mockResolvedValueOnce(jsonResponse({ data: [] }));
     const now = new Date();
 
     await GET(request());
 
-    expect(mockGhostFetch).toHaveBeenCalledWith(
+    expect(mockClientFetch).toHaveBeenCalledWith(
       `https://jkt48.com/api/v1/schedules?lang=id&month=${
         now.getMonth() + 1
       }&year=${now.getFullYear()}&type=show`,
-      { browser: "Chrome_131" },
     );
   });
 
   it("caches repeated month requests", async () => {
-    mockGhostFetch.mockResolvedValueOnce(
+    mockClientFetch.mockResolvedValueOnce(
       jsonResponse({
         data: [makeShow("cached")],
       }),
@@ -131,11 +146,13 @@ describe("GET /api/schedule", () => {
 
     expect(first.headers.get("X-Schedule-Cache")).toBe("MISS");
     expect(second.headers.get("X-Schedule-Cache")).toBe("HIT");
-    expect(mockGhostFetch).toHaveBeenCalledTimes(1);
+    expect(MockGhostClient).toHaveBeenCalledTimes(1);
+    expect(mockClientFetch).toHaveBeenCalledTimes(1);
+    expect(mockClientDestroy).toHaveBeenCalledTimes(1);
   });
 
   it("returns 502 when the official API request fails", async () => {
-    mockGhostFetch.mockResolvedValueOnce(jsonResponse({ error: "blocked" }, 403));
+    mockClientFetch.mockResolvedValueOnce(jsonResponse({ error: "blocked" }, 403));
 
     const res = await GET(request("?month=10&year=2026"));
     const body = await res.json();
@@ -144,5 +161,6 @@ describe("GET /api/schedule", () => {
     expect(body.error).toBe(
       "Cloudflare blocked the request to /schedules?lang=id&month=10&year=2026&type=show. Status: 403",
     );
+    expect(mockClientDestroy).toHaveBeenCalledTimes(1);
   });
 });
