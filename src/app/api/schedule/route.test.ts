@@ -1,19 +1,22 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockExecFile } = vi.hoisted(() => ({
-  mockExecFile: vi.fn(),
+const { mockGhostFetch } = vi.hoisted(() => ({
+  mockGhostFetch: vi.fn(),
 }));
 
-vi.mock("node:child_process", () => ({
-  default: { execFile: mockExecFile },
-  execFile: mockExecFile,
+vi.mock("ghostfetch", () => ({
+  ghostFetch: mockGhostFetch,
 }));
 
-import { GET } from "@/app/api/schedule/route";
+import { clearScheduleRouteCache, GET } from "@/app/api/schedule/route";
 
 const MEMBER_ID = 39;
 
-function makeShow(code: string, memberIds = [MEMBER_ID]) {
+function makeShow(
+  code: string,
+  memberIds = [MEMBER_ID],
+  referenceCode = code,
+) {
   return {
     code,
     title: `Show ${code}`,
@@ -28,138 +31,118 @@ function makeShow(code: string, memberIds = [MEMBER_ID]) {
     jkt48_member_type: "regular",
     default_price: 100,
     total_quota: 200,
+    reference_code: referenceCode,
   };
 }
 
-function pythonResponse(shows = [makeShow("a")]) {
-  return JSON.stringify({
-    source: "jkt48-official-python",
-    month: "8",
-    year: "2026",
-    member_id: MEMBER_ID,
-    count: shows.length,
-    shows,
-  });
+function jsonResponse(data: unknown, status = 200) {
+  return {
+    status,
+    json: vi.fn().mockResolvedValue(data),
+  };
 }
 
 function request(query = "") {
   return new Request(`http://localhost/api/schedule${query}`);
 }
 
-function mockPythonSuccess(stdout = pythonResponse(), stderr = "") {
-  mockExecFile.mockImplementation((_bin, _args, _options, callback) => {
-    callback(null, stdout, stderr);
-  });
-}
-
-function mockPythonFailure(stderr: string) {
-  mockExecFile.mockImplementation((_bin, _args, _options, callback) => {
-    const error = new Error("python failed") as Error & { stderr: string };
-    error.stderr = stderr;
-    callback(error, "", stderr);
-  });
-}
-
 describe("GET /api/schedule", () => {
   beforeEach(() => {
-    mockExecFile.mockReset();
-    vi.unstubAllEnvs();
+    mockGhostFetch.mockReset();
+    clearScheduleRouteCache();
   });
 
-  it("returns shows from the official Python fetcher", async () => {
-    mockPythonSuccess(pythonResponse([makeShow("a"), makeShow("b")]));
+  it("returns matching shows directly from the schedule list", async () => {
+    mockGhostFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: [makeShow("a"), makeShow("b", [999])],
+      }),
+    );
 
     const res = await GET(request("?month=8&year=2026"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toHaveLength(2);
+    expect(res.headers.get("X-Schedule-Cache")).toBe("MISS");
+    expect(body).toHaveLength(1);
     expect(body[0].code).toBe("a");
+    expect(mockGhostFetch).toHaveBeenCalledTimes(1);
+    expect(mockGhostFetch).toHaveBeenCalledWith(
+      "https://jkt48.com/api/v1/schedules?lang=id&month=8&year=2026&type=show",
+      { browser: "Chrome_131" },
+    );
   });
 
-  it("passes month and year query params to the Python script", async () => {
-    mockPythonSuccess(pythonResponse([]));
+  it("fetches show details when the list has no member payload", async () => {
+    mockGhostFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            { ...makeShow("a", [], "ref-a"), jkt48_member: [] },
+            { ...makeShow("b", [], "ref-b"), jkt48_member: [] },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: makeShow("a", [999]) }))
+      .mockResolvedValueOnce(jsonResponse({ data: makeShow("b") }));
 
-    await GET(request("?month=7&year=2030"));
+    const res = await GET(request("?month=7&year=2026"));
+    const body = await res.json();
 
-    expect(mockExecFile).toHaveBeenCalledWith(
-      "python3",
-      [
-        expect.stringContaining("scripts/fetch_jkt48_schedule.py"),
-        "--month",
-        "7",
-        "--year",
-        "2030",
-      ],
-      expect.objectContaining({
-        timeout: 30000,
-        maxBuffer: 1024 * 1024,
-      }),
-      expect.any(Function),
+    expect(res.status).toBe(200);
+    expect(body).toHaveLength(1);
+    expect(body[0].code).toBe("b");
+    expect(mockGhostFetch).toHaveBeenCalledTimes(3);
+    expect(mockGhostFetch).toHaveBeenNthCalledWith(
+      2,
+      "https://jkt48.com/api/v1/theater-shows/ref-a?lang=id",
+      { browser: "Chrome_131" },
+    );
+    expect(mockGhostFetch).toHaveBeenNthCalledWith(
+      3,
+      "https://jkt48.com/api/v1/theater-shows/ref-b?lang=id",
+      { browser: "Chrome_131" },
     );
   });
 
   it("defaults to the current month and year when params are absent", async () => {
-    mockPythonSuccess(pythonResponse([]));
+    mockGhostFetch.mockResolvedValueOnce(jsonResponse({ data: [] }));
     const now = new Date();
 
     await GET(request());
 
-    expect(mockExecFile).toHaveBeenCalledWith(
-      "python3",
-      expect.arrayContaining([
-        "--month",
-        String(now.getMonth() + 1),
-        "--year",
-        String(now.getFullYear()),
-      ]),
-      expect.any(Object),
-      expect.any(Function),
+    expect(mockGhostFetch).toHaveBeenCalledWith(
+      `https://jkt48.com/api/v1/schedules?lang=id&month=${
+        now.getMonth() + 1
+      }&year=${now.getFullYear()}&type=show`,
+      { browser: "Chrome_131" },
     );
   });
 
-  it("adds the vendored Python packages directory to PYTHONPATH", async () => {
-    vi.stubEnv("PYTHONPATH", "existing-path");
-    mockPythonSuccess(pythonResponse([]));
-
-    await GET(request());
-
-    expect(mockExecFile).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Array),
-      expect.objectContaining({
-        env: expect.objectContaining({
-          PYTHONPATH: expect.stringMatching(/\.python_packages.*existing-path/),
-        }),
-      }),
-      expect.any(Function),
-    );
-  });
-
-  it("returns 502 with the Python stderr JSON message when the request fails", async () => {
-    mockPythonFailure(
-      JSON.stringify({
-        source: "jkt48-official-python",
-        ok: false,
-        error: "Cloudflare challenge",
-        status: 403,
+  it("caches repeated month requests", async () => {
+    mockGhostFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: [makeShow("cached")],
       }),
     );
 
-    const res = await GET(request());
-    const body = await res.json();
+    const first = await GET(request("?month=9&year=2026"));
+    const second = await GET(request("?month=9&year=2026"));
 
-    expect(res.status).toBe(502);
-    expect(body.error).toBe("Cloudflare challenge");
+    expect(first.headers.get("X-Schedule-Cache")).toBe("MISS");
+    expect(second.headers.get("X-Schedule-Cache")).toBe("HIT");
+    expect(mockGhostFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 502 when the Python response is invalid", async () => {
-    mockPythonSuccess(JSON.stringify({ shows: null }));
+  it("returns 502 when the official API request fails", async () => {
+    mockGhostFetch.mockResolvedValueOnce(jsonResponse({ error: "blocked" }, 403));
 
-    const res = await GET(request());
+    const res = await GET(request("?month=10&year=2026"));
     const body = await res.json();
 
     expect(res.status).toBe(502);
-    expect(body.error).toBe("Python schedule script returned an invalid response");
+    expect(body.error).toBe(
+      "Cloudflare blocked the request to /schedules?lang=id&month=10&year=2026&type=show. Status: 403",
+    );
   });
 });

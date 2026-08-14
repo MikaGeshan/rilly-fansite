@@ -1,8 +1,10 @@
-import { execFile } from "node:child_process";
-import { delimiter, join } from "node:path";
 import { NextResponse } from "next/server";
+import { ghostFetch } from "ghostfetch";
 
-export const runtime = "nodejs";
+const BASE_URL = "https://jkt48.com/api/v1";
+const MEMBER_ID = 39;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const DETAIL_CONCURRENCY = 5;
 
 interface Member {
   name: string;
@@ -20,9 +22,10 @@ interface ShowData {
   jkt48_member_type: string;
   default_price: number;
   total_quota: number;
+  reference_code?: string;
 }
 
-interface PythonScheduleResponse {
+interface ScheduleResult {
   source: string;
   month: string;
   year: string;
@@ -31,116 +34,206 @@ interface PythonScheduleResponse {
   shows: ShowData[];
 }
 
-const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
-const PYTHON_PACKAGES_PATH = ".python_packages";
-const SCRIPT_PATH = join("scripts", "fetch_jkt48_schedule.py");
+interface ApiEnvelope<T> {
+  data?: T;
+}
 
-function withPythonPath() {
-  const existingPythonPath = process.env.PYTHONPATH;
+interface CacheEntry {
+  expiresAt: number;
+  result: ScheduleResult;
+}
+
+const scheduleCache = new Map<string, CacheEntry>();
+const pendingRequests = new Map<string, Promise<ScheduleResult>>();
+
+export function clearScheduleRouteCache() {
+  scheduleCache.clear();
+  pendingRequests.clear();
+}
+
+function cacheKey(month: string, year: string) {
+  return `${year}-${month}`;
+}
+
+function isTargetMemberShow(show: Pick<ShowData, "jkt48_member">) {
+  return show.jkt48_member.some((member) => member.member_id === MEMBER_ID);
+}
+
+function normalizeMonthYear(month: string | null, year: string | null) {
+  const now = new Date();
+  const parsedMonth = Number(month);
+  const parsedYear = Number(year);
 
   return {
-    ...process.env,
-    PYTHONPATH: existingPythonPath
-      ? `${PYTHON_PACKAGES_PATH}${delimiter}${existingPythonPath}`
-      : PYTHON_PACKAGES_PATH,
+    month:
+      Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+        ? String(parsedMonth)
+        : String(now.getMonth() + 1),
+    year:
+      Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
+        ? String(parsedYear)
+        : String(now.getFullYear()),
   };
 }
 
-function logScheduleResult(result: PythonScheduleResponse) {
-  console.info("[schedule-api] result", {
-    source: result.source,
-    month: result.month,
-    year: result.year,
-    member_id: result.member_id,
-    count: result.count,
-    shows: result.shows.map((show) => ({
-      code: show.code,
-      title: show.title,
-      date: show.date,
-      start_time: show.start_time,
-    })),
-  });
-}
+async function fetchJson<T>(path: string): Promise<T> {
+  const url = `${BASE_URL}${path}`;
 
-async function fetchOfficialSchedule(month: string, year: string) {
-  const { stdout, stderr } = await new Promise<{
-    stdout: string;
-    stderr: string;
-  }>((resolve, reject) => {
-    execFile(
-      PYTHON_BIN,
-      [SCRIPT_PATH, "--month", month, "--year", year],
-      {
-        env: withPythonPath(),
-        timeout: 30000,
-        maxBuffer: 1024 * 1024,
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(Object.assign(error, { stderr }));
-          return;
-        }
-
-        resolve({ stdout, stderr });
-      },
-    );
+  const response = await ghostFetch(url, {
+    browser: "Chrome_131",
   });
 
-  if (stderr.trim()) {
-    console.warn("[schedule-api] python stderr", stderr.trim());
+  if (response.status !== 200) {
+    if (response.status === 403) {
+      throw new Error(`Cloudflare blocked the request to ${path}. Status: 403`);
+    }
+    throw new Error(`API error ${path}: ${response.status}`);
   }
 
-  const result = JSON.parse(stdout) as PythonScheduleResponse;
-
-  if (!Array.isArray(result.shows)) {
-    throw new Error("Python schedule script returned an invalid response");
-  }
-
-  return result;
+  return response.json() as Promise<T>;
 }
 
-function getErrorMessage(error: unknown) {
-  if (
-    error &&
-    typeof error === "object" &&
-    "stderr" in error &&
-    typeof error.stderr === "string"
-  ) {
-    try {
-      const details = JSON.parse(error.stderr) as { error?: unknown };
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
 
-      if (typeof details.error === "string") {
-        return details.error;
-      }
-    } catch {
-      return error.stderr.trim();
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
     }
   }
 
-  if (error instanceof Error) {
-    return error.message;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+
+  return results;
+}
+
+async function fetchOfficialSchedule(
+  month: string,
+  year: string,
+): Promise<ScheduleResult> {
+  const schedulesResponse = await fetchJson<ApiEnvelope<ShowData[]>>(
+    `/schedules?lang=id&month=${month}&year=${year}&type=show`,
+  );
+  const schedules = Array.isArray(schedulesResponse.data)
+    ? schedulesResponse.data
+    : [];
+
+  const listMatches = schedules.filter((show) => {
+    return Array.isArray(show.jkt48_member) && isTargetMemberShow(show);
+  });
+
+  if (listMatches.length > 0) {
+    return {
+      source: "jkt48-official-ghostfetch",
+      month,
+      year,
+      member_id: MEMBER_ID,
+      count: listMatches.length,
+      shows: listMatches,
+    };
   }
 
-  return "Failed to fetch schedules from JKT48 official API";
+  const codes = schedules
+    .map((show) => show.reference_code)
+    .filter((code): code is string => typeof code === "string");
+
+  const showsResponses = await mapWithConcurrency(
+    codes,
+    DETAIL_CONCURRENCY,
+    async (code) => {
+      try {
+        const showDetail = await fetchJson<ApiEnvelope<ShowData>>(
+          `/theater-shows/${code}?lang=id`,
+        );
+        return showDetail.data ?? null;
+      } catch (error) {
+        console.warn(`[schedule-api] show fetch failed code=${code}`, error);
+        return null;
+      }
+    },
+  );
+
+  const filteredShows = showsResponses.filter((show): show is ShowData => {
+    if (!show || !Array.isArray(show.jkt48_member)) return false;
+    return isTargetMemberShow(show);
+  });
+
+  return {
+    source: "jkt48-official-ghostfetch",
+    month,
+    year,
+    member_id: MEMBER_ID,
+    count: filteredShows.length,
+    shows: filteredShows,
+  };
+}
+
+async function getSchedule(month: string, year: string) {
+  const key = cacheKey(month, year);
+  const cached = scheduleCache.get(key);
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    return { result: cached.result, cacheStatus: "HIT" };
+  }
+
+  const pending = pendingRequests.get(key);
+  if (pending) {
+    return { result: await pending, cacheStatus: "PENDING" };
+  }
+
+  const requestPromise = fetchOfficialSchedule(month, year);
+  pendingRequests.set(key, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    scheduleCache.set(key, {
+      result,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+    return { result, cacheStatus: "MISS" };
+  } finally {
+    pendingRequests.delete(key);
+  }
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
-    const now = new Date();
-    const month = searchParams.get("month") ?? String(now.getMonth() + 1);
-    const year = searchParams.get("year") ?? String(now.getFullYear());
-    const result = await fetchOfficialSchedule(month, year);
+    const { month, year } = normalizeMonthYear(
+      searchParams.get("month"),
+      searchParams.get("year"),
+    );
 
-    logScheduleResult(result);
+    const { result, cacheStatus } = await getSchedule(month, year);
 
-    return NextResponse.json(result.shows);
-  } catch (error) {
-    const message = getErrorMessage(error);
-
-    console.error("[schedule-api] official python fetch failed", {
-      message,
+    console.info("[schedule-api] result", {
+      source: result.source,
+      month: result.month,
+      year: result.year,
+      count: result.count,
+      cache: cacheStatus,
     });
+
+    return NextResponse.json(result.shows, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        "X-Schedule-Cache": cacheStatus,
+      },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch schedules";
+    console.error("[schedule-api] ghostfetch failed", { message });
 
     return NextResponse.json({ error: message }, { status: 502 });
   }

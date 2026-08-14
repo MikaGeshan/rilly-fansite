@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  outputFileTracingIncludes: {
-    "/api/schedule": ["./scripts/fetch_jkt48_schedule.py", "./.python_packages/**/*"],
-  },
+  // Next.js 15+
+  serverExternalPackages: ["ghostfetch"],
 };
 
 export default nextConfig;
