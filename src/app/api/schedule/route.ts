@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-const DEV_BASE_URL = "http://0.0.0.0:3000/api/schedule";
-const BASE_URL = process.env.BASE_URL ?? DEV_BASE_URL;
+const BASE_URL = process.env.BASE_URL || "";
 const MEMBER_ID = 39;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 12_000;
