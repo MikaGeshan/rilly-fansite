@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { GhostClient } from "ghostfetch";
 
-const BASE_URL = "https://jkt48.com/api/v1";
+const DEV_BASE_URL = "http://0.0.0.0:3000/api/schedule";
+const BASE_URL = process.env.BASE_URL ?? DEV_BASE_URL;
 const MEMBER_ID = 39;
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const DETAIL_CONCURRENCY = 5;
+const FETCH_TIMEOUT_MS = 12_000;
 
 interface Member {
   name: string;
@@ -18,10 +18,10 @@ interface ShowData {
   date: string;
   start_time: string;
   end_time: string;
-  jkt48_member: Member[];
-  jkt48_member_type: string;
-  default_price: number;
-  total_quota: number;
+  jkt48_member?: Member[];
+  jkt48_member_type?: string;
+  default_price?: number;
+  total_quota?: number;
   reference_code?: string;
 }
 
@@ -34,8 +34,14 @@ interface ScheduleResult {
   shows: ShowData[];
 }
 
-interface ApiEnvelope<T> {
-  data?: T;
+interface ElysiaScheduleEnvelope {
+  source?: string;
+  member_id?: number;
+  month?: string;
+  year?: string;
+  count?: number;
+  shows?: ShowData[];
+  error?: string;
 }
 
 interface CacheEntry {
@@ -55,10 +61,6 @@ function cacheKey(month: string, year: string) {
   return `${year}-${month}`;
 }
 
-function isTargetMemberShow(show: Pick<ShowData, "jkt48_member">) {
-  return show.jkt48_member.some((member) => member.member_id === MEMBER_ID);
-}
-
 function normalizeMonthYear(month: string | null, year: string | null) {
   const now = new Date();
   const parsedMonth = Number(month);
@@ -76,116 +78,72 @@ function normalizeMonthYear(month: string | null, year: string | null) {
   };
 }
 
-async function fetchJson<T>(client: GhostClient, path: string): Promise<T> {
-  const url = `${BASE_URL}${path}`;
+function buildElysiaScheduleUrl(month: string, year: string) {
+  const url = new URL(BASE_URL);
 
-  const response = await client.fetch(url);
+  url.searchParams.set("month", month);
+  url.searchParams.set("year", year);
 
-  if (response.status !== 200) {
-    if (response.status === 403) {
-      throw new Error(`Cloudflare blocked the request to ${path}. Status: 403`);
-    }
-    throw new Error(`API error ${path}: ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
+  return url;
 }
 
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>,
-) {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
+function normalizeElysiaPayload(
+  payload: ElysiaScheduleEnvelope | ShowData[],
+  month: string,
+  year: string,
+): ScheduleResult {
+  const shows = Array.isArray(payload) ? payload : payload.shows;
 
-  async function worker() {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      results[currentIndex] = await mapper(items[currentIndex]);
-    }
+  if (!Array.isArray(shows)) {
+    throw new Error("Elysia schedule API returned an invalid response");
   }
 
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
-  );
-
-  return results;
+  return {
+    source: Array.isArray(payload)
+      ? "elysia-schedule-api"
+      : (payload.source ?? "elysia-schedule-api"),
+    month: Array.isArray(payload) ? month : (payload.month ?? month),
+    year: Array.isArray(payload) ? year : (payload.year ?? year),
+    member_id: Array.isArray(payload)
+      ? MEMBER_ID
+      : (payload.member_id ?? MEMBER_ID),
+    count: shows.length,
+    shows,
+  };
 }
 
-async function fetchOfficialSchedule(
+async function parseErrorMessage(response: Response) {
+  try {
+    const payload = (await response.json()) as ElysiaScheduleEnvelope;
+    return (
+      payload.error ?? `Elysia schedule API failed with ${response.status}`
+    );
+  } catch {
+    return `Elysia schedule API failed with ${response.status}`;
+  }
+}
+
+async function fetchElysiaSchedule(
   month: string,
   year: string,
 ): Promise<ScheduleResult> {
-  const client = new GhostClient({
-    browser: "Chrome_131",
-    timeout: 15_000,
+  const url = buildElysiaScheduleUrl(month, year);
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  try {
-    const schedulesResponse = await fetchJson<ApiEnvelope<ShowData[]>>(
-      client,
-      `/schedules?lang=id&month=${month}&year=${year}&type=show`,
-    );
-    const schedules = Array.isArray(schedulesResponse.data)
-      ? schedulesResponse.data
-      : [];
-
-    const listMatches = schedules.filter((show) => {
-      return Array.isArray(show.jkt48_member) && isTargetMemberShow(show);
-    });
-
-    if (listMatches.length > 0) {
-      return {
-        source: "jkt48-official-ghostfetch",
-        month,
-        year,
-        member_id: MEMBER_ID,
-        count: listMatches.length,
-        shows: listMatches,
-      };
-    }
-
-    const codes = schedules
-      .map((show) => show.reference_code)
-      .filter((code): code is string => typeof code === "string");
-
-    const showsResponses = await mapWithConcurrency(
-      codes,
-      DETAIL_CONCURRENCY,
-      async (code) => {
-        try {
-          const showDetail = await fetchJson<ApiEnvelope<ShowData>>(
-            client,
-            `/theater-shows/${code}?lang=id`,
-          );
-          return showDetail.data ?? null;
-        } catch (error) {
-          console.warn(`[schedule-api] show fetch failed code=${code}`, error);
-          return null;
-        }
-      },
-    );
-
-    const filteredShows = showsResponses.filter((show): show is ShowData => {
-      if (!show || !Array.isArray(show.jkt48_member)) return false;
-      return isTargetMemberShow(show);
-    });
-
-    return {
-      source: "jkt48-official-ghostfetch",
-      month,
-      year,
-      member_id: MEMBER_ID,
-      count: filteredShows.length,
-      shows: filteredShows,
-    };
-  } finally {
-    await client.destroy().catch((error: unknown) => {
-      console.warn("[schedule-api] ghostfetch client cleanup failed", error);
-    });
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
   }
+
+  const payload = (await response.json()) as
+    | ElysiaScheduleEnvelope
+    | ShowData[];
+  return normalizeElysiaPayload(payload, month, year);
 }
 
 async function getSchedule(month: string, year: string) {
@@ -202,7 +160,7 @@ async function getSchedule(month: string, year: string) {
     return { result: await pending, cacheStatus: "PENDING" };
   }
 
-  const requestPromise = fetchOfficialSchedule(month, year);
+  const requestPromise = fetchElysiaSchedule(month, year);
   pendingRequests.set(key, requestPromise);
 
   try {
@@ -239,12 +197,13 @@ export async function GET(request: Request): Promise<NextResponse> {
       headers: {
         "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
         "X-Schedule-Cache": cacheStatus,
+        "X-Schedule-Source": result.source,
       },
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch schedules";
-    console.error("[schedule-api] ghostfetch failed", { message });
+    console.error("[schedule-api] elysia fetch failed", { message });
 
     return NextResponse.json({ error: message }, { status: 502 });
   }
