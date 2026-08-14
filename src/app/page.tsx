@@ -7,7 +7,6 @@ import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { type FanLetter, useFanLetterStore } from "@/stores/fan-letter-store";
 import { ImageFrame } from "@/components/ui/image-frame";
-import { Analytics } from "@vercel/analytics/next";
 
 const themeStyles: Record<FanLetter["theme"], string> = {
   pink: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,226,241,0.92))",
@@ -313,7 +312,6 @@ export default function Home() {
       </main>
 
       <Footer />
-      <Analytics />
     </div>
   );
 }
